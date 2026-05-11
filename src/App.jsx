@@ -128,6 +128,8 @@ const CHART_BARS = [
   { key: "setup", label: "Setup fees", color: "#ffd93d" },
 ];
 
+const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
 const getCatColor = (id) => CATEGORIES.find(c => c.id === id)?.color || "#888";
 const getCatLabel = (id) => CATEGORIES.find(c => c.id === id)?.label || id;
 const fmt = (n) => "$" + Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -135,11 +137,16 @@ const toYM = (d) => d.slice(0, 7);
 const today = () => new Date().toISOString().split("T")[0];
 const nowDate = new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 const monthlyAmt = (e) => Number(e.amount) / (e.period === "anual" ? 12 : 1);
+const clientMonthlyMaintenance = (c) => {
+  if ((c.serviceType ?? "ia") === "ia") return Number(c.monthlyFee);
+  return Number(c.maintenanceFee || 0) / (c.maintenancePeriod === "anual" ? 12 : 1);
+};
+const invoiceKey = (clientId, year, month) => `${clientId}-${year}-${month}`;
 
 const DEMO_CLIENTS = [
   { id: "c1", name: "Clínica Hernández", serviceType: "ia", setupFee: 8000, monthlyFee: 2500, needsInvoice: true, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-03-01", notes: "Requiere CFDI" },
   { id: "c2", name: "Inmobiliaria Pérez", serviceType: "ia", setupFee: 10000, monthlyFee: 3000, needsInvoice: false, billingDay: 15, billingFreq: "mensual", status: "activo", startDate: "2025-04-15", notes: "" },
-  { id: "c3", name: "Restaurante Don Pepe", serviceType: "web", setupFee: 15000, monthlyFee: 0, needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-05-01", notes: "Landing page + menú digital" },
+  { id: "c3", name: "Restaurante Don Pepe", serviceType: "web", setupFee: 15000, monthlyFee: 0, maintenanceFee: 800, maintenancePeriod: "mensual", needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-05-01", notes: "Landing page + menú digital" },
 ];
 const DEMO_EXPENSES = [
   { id: "e1", name: "Vercel Pro", amount: 400, period: "mensual", category: "infra", date: "2025-05-01", notes: "Plan Pro" },
@@ -157,7 +164,8 @@ function buildChartData(clients, expenses, fromMonth, toMonth) {
     cur.setMonth(cur.getMonth() + 1);
   }
   return months.map(m => {
-    const ingresos = clients.filter(c => c.status === "activo" && toYM(c.startDate) <= m).reduce((s, c) => s + Number(c.monthlyFee), 0);
+    const activeInMonth = clients.filter(c => c.status === "activo" && toYM(c.startDate) <= m);
+    const ingresos = activeInMonth.reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
     const gastos = expenses.filter(e => toYM(e.date) === m).reduce((s, e) => s + monthlyAmt(e), 0);
     const setup = clients.filter(c => toYM(c.startDate) === m).reduce((s, c) => s + Number(c.setupFee), 0);
     const ganancia = Math.max(0, ingresos - gastos);
@@ -191,13 +199,16 @@ export default function App() {
   const [expenseModal, setExpenseModal] = useState(false);
   const [editClient, setEditClient] = useState(null);
   const [editExpense, setEditExpense] = useState(null);
+  const [invoicesSent, setInvoicesSent] = useState([]);
 
   useEffect(() => {
     try {
       const c = localStorage.getItem("iavanta-clients");
       const e = localStorage.getItem("iavanta-expenses");
+      const inv = localStorage.getItem("iavanta-invoices-sent");
       if (c) setClients(JSON.parse(c));
       if (e) setExpenses(JSON.parse(e));
+      if (inv) setInvoicesSent(JSON.parse(inv));
     } catch (_) {}
     setLoaded(true);
   }, []);
@@ -212,15 +223,25 @@ export default function App() {
     try { localStorage.setItem("iavanta-expenses", JSON.stringify(data)); } catch (_) {}
   }, []);
 
+  const markInvoiceSent = useCallback((key) => {
+    setInvoicesSent(prev => {
+      const updated = [...prev, key];
+      try { localStorage.setItem("iavanta-invoices-sent", JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+  }, []);
+
   const activeClients = clients.filter(c => c.status === "activo");
   const iaClients = activeClients.filter(c => (c.serviceType ?? "ia") === "ia");
   const webClients = clients.filter(c => (c.serviceType ?? "ia") === "web");
-  const totalMonthly = iaClients.reduce((s, c) => s + Number(c.monthlyFee), 0);
+  const totalMonthly = activeClients.reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
+  const totalIAMonthly = iaClients.reduce((s, c) => s + Number(c.monthlyFee), 0);
+  const totalWebMaintenance = activeClients.filter(c => (c.serviceType ?? "ia") === "web").reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
   const totalWebRevenue = webClients.reduce((s, c) => s + Number(c.setupFee), 0);
-  const totalSetup = clients.filter(c => (c.serviceType ?? "ia") === "ia").reduce((s, c) => s + Number(c.setupFee), 0);
   const totalExpMonthly = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
   const profit = totalMonthly - totalExpMonthly;
   const margin = totalMonthly > 0 ? Math.round((profit / totalMonthly) * 100) : 0;
+  const now = new Date();
   const invoiceClients = clients.filter(c => c.needsInvoice && c.status === "activo");
 
   if (!loaded) return (
@@ -243,7 +264,7 @@ export default function App() {
           <div className="nav-date">{nowDate}</div>
         </nav>
         <main className="main">
-          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalWebRevenue={totalWebRevenue} totalSetup={totalSetup} totalExpMonthly={totalExpMonthly} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} />}
+          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} now={now} />}
           {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
           {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
         </main>
@@ -252,8 +273,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ clients, expenses, totalMonthly, totalWebRevenue, totalSetup, totalExpMonthly, profit, margin, activeClients, iaClients, webClients, invoiceClients }) {
-  const now = new Date();
+function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, now }) {
   const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-01`);
   const [toMonth, setToMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
@@ -277,12 +297,12 @@ function Dashboard({ clients, expenses, totalMonthly, totalWebRevenue, totalSetu
 
       <div className="stats-grid">
         <div className="stat-card purple">
-          <div className="stat-label">MRR · IAvanta IA</div>
+          <div className="stat-label">Ingresos mensuales</div>
           <div className="stat-value">{fmt(totalMonthly)}</div>
-          <div className="stat-sub">{iaClients.length} cliente{iaClients.length !== 1 ? "s" : ""} activo{iaClients.length !== 1 ? "s" : ""}</div>
+          <div className="stat-sub">IA {fmt(totalIAMonthly)} · Web {fmt(totalWebMaintenance)}</div>
         </div>
         <div className="stat-card blue">
-          <div className="stat-label">Páginas web</div>
+          <div className="stat-label">Lanzamientos web</div>
           <div className="stat-value">{fmt(totalWebRevenue)}</div>
           <div className="stat-sub">{webClients.length} proyecto{webClients.length !== 1 ? "s" : ""} cerrado{webClients.length !== 1 ? "s" : ""}</div>
         </div>
@@ -292,7 +312,7 @@ function Dashboard({ clients, expenses, totalMonthly, totalWebRevenue, totalSetu
           <div className="stat-sub">equivalente mensual</div>
         </div>
         <div className="stat-card gold">
-          <div className="stat-label">Ganancia IA neta</div>
+          <div className="stat-label">Ganancia neta</div>
           <div className="stat-value">{fmt(profit)}</div>
           <div className="stat-sub">{margin}% de margen</div>
         </div>
@@ -340,17 +360,47 @@ function Dashboard({ clients, expenses, totalMonthly, totalWebRevenue, totalSetu
         }
       </div>
 
-      {invoiceClients.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 14, color: "#6b6580", marginBottom: 10 }}>Facturas pendientes</div>
-          {invoiceClients.map(c => (
-            <div key={c.id} className="alert alert-gold">
-              <span>🧾</span>
-              <span><strong>{c.name}</strong> — requiere factura {c.billingFreq}, día {c.billingDay}. Monto: {fmt(c.monthlyFee)}</span>
+      {invoiceClients.length > 0 && (() => {
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const pending = invoiceClients.filter(c => !invoicesSent.includes(invoiceKey(c.id, year, month)));
+        const sent = invoiceClients.filter(c => invoicesSent.includes(invoiceKey(c.id, year, month)));
+        if (pending.length === 0 && sent.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 14, color: "#6b6580", marginBottom: 10 }}>
+              Facturas {MONTHS_ES[month]} {year}
+              {pending.length === 0 && <span style={{ marginLeft: 8, fontSize: 12, color: "#10b981", fontWeight: 500 }}>· todas enviadas ✓</span>}
             </div>
-          ))}
-        </div>
-      )}
+            {pending.map(c => {
+              const isWeb = (c.serviceType ?? "ia") === "web";
+              const monto = isWeb ? Number(c.maintenanceFee || 0) : Number(c.monthlyFee);
+              return (
+                <div key={c.id} className="alert alert-gold" style={{ justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span>🧾</span>
+                    <span>
+                      <strong>{c.name}</strong> — requiere factura {c.billingFreq} por el mes de <strong>{MONTHS_ES[month]} {year}</strong>, el día {c.billingDay}. Monto: <strong>{fmt(monto)}</strong>
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => onMarkInvoiceSent(invoiceKey(c.id, year, month))}
+                    style={{ flexShrink: 0, background: "#10b98120", border: "1px solid #10b98140", color: "#10b981", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "DM Mono, monospace", whiteSpace: "nowrap" }}
+                  >
+                    ✓ Marcar enviada
+                  </button>
+                </div>
+              );
+            })}
+            {sent.map(c => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderRadius: 12, fontSize: 12, marginBottom: 8, background: "#10b98108", border: "1px solid #10b98120", color: "#10b981" }}>
+                <span>✓</span>
+                <span><strong>{c.name}</strong> — factura {MONTHS_ES[month]} {year} enviada</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="grid-2">
         <div className="card">
@@ -416,7 +466,7 @@ function Dashboard({ clients, expenses, totalMonthly, totalWebRevenue, totalSetu
 }
 
 function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
-  const blank = { id: "", name: "", serviceType: "ia", setupFee: "", monthlyFee: "", needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: today(), notes: "" };
+  const blank = { id: "", name: "", serviceType: "ia", setupFee: "", monthlyFee: "", maintenanceFee: "", maintenancePeriod: "mensual", needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: today(), notes: "" };
   const [form, setForm] = useState(blank);
 
   const openAdd = () => { setForm(blank); setEditItem(null); setModal(true); };
@@ -459,11 +509,14 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
             : (
               <table className="table">
                 <thead>
-                  <tr><th>Cliente</th><th>Tipo</th><th>Ingreso</th><th>Mensualidad</th><th>Factura</th><th>Estado</th><th>Inicio</th><th></th></tr>
+                  <tr><th>Cliente</th><th>Tipo</th><th>Precio lanzamiento</th><th>Recurrente</th><th>Factura</th><th>Estado</th><th>Inicio</th><th></th></tr>
                 </thead>
                 <tbody>
                   {clients.map(c => {
                     const isWeb = (c.serviceType ?? "ia") === "web";
+                    const recurrente = isWeb
+                      ? (Number(c.maintenanceFee) > 0 ? `${fmt(c.maintenanceFee)}/${c.maintenancePeriod === "anual" ? "año" : "mes"}` : "—")
+                      : fmt(c.monthlyFee) + "/mes";
                     return (
                     <tr key={c.id}>
                       <td>
@@ -476,8 +529,8 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                           : <span className="badge badge-purple">🤖 IA</span>}
                       </td>
                       <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#8b82a8" }}>{fmt(c.setupFee)}</td>
-                      <td className="mono" style={{ color: "#9b5cff" }}>
-                        {isWeb ? <span style={{ color: "#c4c9d9", fontSize: 12 }}>—</span> : fmt(c.monthlyFee)}
+                      <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#9b5cff", fontSize: recurrente === "—" ? 14 : 13 }}>
+                        {recurrente}
                       </td>
                       <td>{c.needsInvoice ? <span className="badge badge-gold">Sí — {c.billingFreq}</span> : <span className="badge badge-gray">No</span>}</td>
                       <td>
@@ -521,11 +574,25 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                 <div className="form-label">{(form.serviceType ?? "ia") === "web" ? "Precio del proyecto (MXN)" : "Setup fee (MXN)"}</div>
                 <input className="form-input" type="number" value={form.setupFee} onChange={e => f("setupFee", e.target.value)} placeholder="0" />
               </div>
-              {(form.serviceType ?? "ia") === "ia" && (
+              {(form.serviceType ?? "ia") === "ia" ? (
                 <div className="form-group">
                   <div className="form-label">Mensualidad (MXN)</div>
                   <input className="form-input" type="number" value={form.monthlyFee} onChange={e => f("monthlyFee", e.target.value)} placeholder="0" />
                 </div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <div className="form-label">Mantenimiento / dominio (MXN)</div>
+                    <input className="form-input" type="number" value={form.maintenanceFee} onChange={e => f("maintenanceFee", e.target.value)} placeholder="0" />
+                  </div>
+                  <div className="form-group">
+                    <div className="form-label">Periodo de mantenimiento</div>
+                    <select className="form-select" value={form.maintenancePeriod ?? "mensual"} onChange={e => f("maintenancePeriod", e.target.value)}>
+                      <option value="mensual">Mensual</option>
+                      <option value="anual">Anual</option>
+                    </select>
+                  </div>
+                </>
               )}
               <div className="form-group">
                 <div className="form-label">Día de cobro</div>
