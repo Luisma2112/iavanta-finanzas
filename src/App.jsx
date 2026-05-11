@@ -143,6 +143,7 @@ const clientMonthlyMaintenance = (c) => {
   return Number(c.maintenanceFee || 0) / (c.maintenancePeriod === "anual" ? 12 : 1);
 };
 const invoiceKey = (clientId, year, month) => `${clientId}-${year}-${month}`;
+const paymentKey = (clientId, year, month) => `pay-${clientId}-${year}-${month}`;
 
 const DEMO_CLIENTS = [
   { id: "c1", name: "Clínica Hernández", serviceType: "ia", setupFee: 8000, monthlyFee: 2500, needsInvoice: true, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-03-01", notes: "Requiere CFDI" },
@@ -202,15 +203,18 @@ export default function App() {
   const [editClient, setEditClient] = useState(null);
   const [editExpense, setEditExpense] = useState(null);
   const [invoicesSent, setInvoicesSent] = useState([]);
+  const [paymentsReceived, setPaymentsReceived] = useState([]);
 
   useEffect(() => {
     try {
       const c = localStorage.getItem("iavanta-clients");
       const e = localStorage.getItem("iavanta-expenses");
       const inv = localStorage.getItem("iavanta-invoices-sent");
+      const pay = localStorage.getItem("iavanta-payments");
       if (c) setClients(JSON.parse(c));
       if (e) setExpenses(JSON.parse(e));
       if (inv) setInvoicesSent(JSON.parse(inv));
+      if (pay) setPaymentsReceived(JSON.parse(pay));
     } catch (_) {}
     setLoaded(true);
   }, []);
@@ -233,6 +237,14 @@ export default function App() {
     });
   }, []);
 
+  const markPaymentReceived = useCallback((key) => {
+    setPaymentsReceived(prev => {
+      const updated = [...prev, key];
+      try { localStorage.setItem("iavanta-payments", JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+  }, []);
+
   const activeClients = clients.filter(c => c.status === "activo");
   const iaClients = activeClients.filter(c => (c.serviceType ?? "ia") === "ia");
   const webClients = clients.filter(c => (c.serviceType ?? "ia") === "web");
@@ -241,8 +253,10 @@ export default function App() {
   const totalWebMaintenance = activeClients.filter(c => (c.serviceType ?? "ia") === "web").reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
   const totalWebRevenue = webClients.reduce((s, c) => s + Number(c.setupFee), 0);
   const now = new Date();
+  const nowYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const totalCobrado = activeClients.filter(c => paymentsReceived.includes(paymentKey(c.id, now.getFullYear(), now.getMonth() + 1))).reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
   const totalExpMonthly = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
-  const totalExpUnico = expenses.filter(e => e.period === "unico" && toYM(e.date) === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`).reduce((s, e) => s + Number(e.amount), 0);
+  const totalExpUnico = expenses.filter(e => e.period === "unico" && toYM(e.date) === nowYM).reduce((s, e) => s + Number(e.amount), 0);
   const profit = totalMonthly - totalExpMonthly;
   const margin = totalMonthly > 0 ? Math.round((profit / totalMonthly) * 100) : 0;
   const invoiceClients = clients.filter(c => c.needsInvoice && c.status === "activo");
@@ -267,7 +281,7 @@ export default function App() {
           <div className="nav-date">{nowDate}</div>
         </nav>
         <main className="main">
-          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} now={now} />}
+          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} />}
           {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
           {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
         </main>
@@ -276,7 +290,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, now }) {
+function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, paymentsReceived, onMarkPayment, now }) {
   const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [toMonth, setToMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
@@ -300,9 +314,9 @@ function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMa
 
       <div className="stats-grid">
         <div className="stat-card purple">
-          <div className="stat-label">Ingresos mensuales</div>
-          <div className="stat-value">{fmt(totalMonthly)}</div>
-          <div className="stat-sub">IA {fmt(totalIAMonthly)} · Web {fmt(totalWebMaintenance)}</div>
+          <div className="stat-label">Cobrado este mes</div>
+          <div className="stat-value">{fmt(totalCobrado)}</div>
+          <div className="stat-sub">de {fmt(totalMonthly)} facturado · {activeClients.length - activeClients.filter(c => paymentsReceived.includes(paymentKey(c.id, now.getFullYear(), now.getMonth() + 1))).length} pendiente{activeClients.length - activeClients.filter(c => paymentsReceived.includes(paymentKey(c.id, now.getFullYear(), now.getMonth() + 1))).length !== 1 ? "s" : ""}</div>
         </div>
         <div className="stat-card blue">
           <div className="stat-label">Lanzamientos web</div>
@@ -362,6 +376,44 @@ function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMa
           )
         }
       </div>
+
+      {(() => {
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const pendingPay = activeClients.filter(c => clientMonthlyMaintenance(c) > 0 && !paymentsReceived.includes(paymentKey(c.id, year, month)));
+        const receivedPay = activeClients.filter(c => clientMonthlyMaintenance(c) > 0 && paymentsReceived.includes(paymentKey(c.id, year, month)));
+        if (pendingPay.length === 0 && receivedPay.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 14, color: "#6b6580", marginBottom: 10 }}>
+              Pagos {MONTHS_ES[now.getMonth()]} {year}
+              {pendingPay.length === 0 && <span style={{ marginLeft: 8, fontSize: 12, color: "#10b981", fontWeight: 500 }}>· todos cobrados ✓</span>}
+            </div>
+            {pendingPay.map(c => (
+              <div key={c.id} className="alert" style={{ background: "#9b5cff08", borderColor: "#9b5cff25", color: "#6b3fcc", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span>💳</span>
+                  <span>
+                    <strong>{c.name}</strong> — pago pendiente del mes de <strong>{MONTHS_ES[now.getMonth()]} {year}</strong>. Monto: <strong>{fmt(clientMonthlyMaintenance(c))}</strong>
+                  </span>
+                </div>
+                <button
+                  onClick={() => onMarkPayment(paymentKey(c.id, year, month))}
+                  style={{ flexShrink: 0, background: "#9b5cff20", border: "1px solid #9b5cff40", color: "#9b5cff", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "DM Mono, monospace", whiteSpace: "nowrap" }}
+                >
+                  ✓ Marcar pagado
+                </button>
+              </div>
+            ))}
+            {receivedPay.map(c => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderRadius: 12, fontSize: 12, marginBottom: 8, background: "#9b5cff08", border: "1px solid #9b5cff20", color: "#9b5cff" }}>
+                <span>✓</span>
+                <span><strong>{c.name}</strong> — {fmt(clientMonthlyMaintenance(c))} cobrado en {MONTHS_ES[now.getMonth()]} {year}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {invoiceClients.length > 0 && (() => {
         const year = now.getFullYear();
