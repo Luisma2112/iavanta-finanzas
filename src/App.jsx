@@ -739,8 +739,7 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const filtered = expenses.filter(e => toYM(e.date) >= fromMonth && toYM(e.date) <= toMonth);
-  const totalUnico = filtered.filter(e => e.period === "unico").reduce((s, e) => s + Number(e.amount), 0);
-  const totalFiltered = filtered.filter(e => e.period !== "unico").reduce((s, e) => s + Number(e.amount), 0);
+  const totalFiltered = filtered.reduce((s, e) => s + Number(e.amount), 0);
 
   return (
     <>
@@ -767,7 +766,7 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
         </div>
         <div className="summary-cell">
           <div className="summary-cell-label">Compras únicas</div>
-          <div className="summary-cell-val" style={{ color: "#10b981" }}>{fmt(totalUnico)}</div>
+          <div className="summary-cell-val" style={{ color: "#10b981" }}>{fmt(filtered.filter(e => e.period === "unico").reduce((s, e) => s + Number(e.amount), 0))}</div>
         </div>
         {CATEGORIES.map(cat => {
           const amt = filtered.filter(e => e.category === cat.id && e.period !== "unico").reduce((s, e) => s + Number(e.amount), 0);
