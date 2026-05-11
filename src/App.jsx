@@ -126,7 +126,6 @@ const CHART_BARS = [
   { key: "ingresos", label: "Ingresos", color: "#9b5cff" },
   { key: "gastos", label: "Gastos", color: "#ff6b6b" },
   { key: "ganancia", label: "Ganancia", color: "#4d9fff" },
-  { key: "setup", label: "Setup fees", color: "#ffd93d" },
 ];
 
 const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -175,13 +174,20 @@ function buildChartData(clients, expenses, fromMonth, toMonth) {
   }
   return months.map(m => {
     const activeInMonth = clients.filter(c => c.status === "activo" && toYM(c.startDate) <= m);
-    const ingresos = activeInMonth.reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
+    const ingresos = activeInMonth.reduce((s, c) => {
+      const isWeb = (c.serviceType ?? "ia") === "web";
+      if (isWeb) {
+        // Proyecto web: cuenta el precio del proyecto solo en el mes de inicio, más mantenimiento mensual
+        const proyectoEsteMes = toYM(c.startDate) === m ? Number(c.setupFee) : 0;
+        return s + proyectoEsteMes + clientMonthlyMaintenance(c);
+      }
+      return s + Number(c.monthlyFee);
+    }, 0);
     const gastos = expenses.filter(e => toYM(e.date) === m).reduce((s, e) =>
       s + (e.period === "unico" ? Number(e.amount) : monthlyAmt(e)), 0);
-    const setup = clients.filter(c => toYM(c.startDate) === m).reduce((s, c) => s + Number(c.setupFee), 0);
     const ganancia = Math.max(0, ingresos - gastos);
     const label = new Date(m + "-02").toLocaleDateString("es-MX", { month: "short", year: "2-digit" });
-    return { month: label, ingresos, gastos, ganancia, setup };
+    return { month: label, ingresos, gastos, ganancia };
   });
 }
 
@@ -262,6 +268,7 @@ export default function App() {
   const totalWebRevenue = webClients.reduce((s, c) => s + Number(c.setupFee), 0);
   const now = new Date();
   const nowYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const totalFacturado = activeClients.filter(c => clientPaymentAmount(c) > 0).reduce((s, c) => s + clientPaymentAmount(c), 0);
   const totalCobrado = activeClients
     .filter(c => clientPaymentAmount(c) > 0 && paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1)))
     .reduce((s, c) => s + clientPaymentAmount(c), 0);
@@ -291,7 +298,7 @@ export default function App() {
           <div className="nav-date">{nowDate}</div>
         </nav>
         <main className="main">
-          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} />}
+          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalFacturado={totalFacturado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} />}
           {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
           {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
         </main>
@@ -300,7 +307,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, paymentsReceived, onMarkPayment, now }) {
+function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalFacturado, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, paymentsReceived, onMarkPayment, now }) {
   const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [toMonth, setToMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
@@ -326,7 +333,10 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonth
         <div className="stat-card purple">
           <div className="stat-label">Cobrado este mes</div>
           <div className="stat-value">{fmt(totalCobrado)}</div>
-          <div className="stat-sub">de {fmt(totalMonthly)} recurrente · {activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length} pago{activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length !== 1 ? "s" : ""} pendiente{activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length !== 1 ? "s" : ""}</div>
+          {(() => {
+            const pending = activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length;
+            return <div className="stat-sub">de {fmt(totalFacturado)} esperado · {pending} pago{pending !== 1 ? "s" : ""} pendiente{pending !== 1 ? "s" : ""}</div>;
+          })()}
         </div>
         <div className="stat-card blue">
           <div className="stat-label">Lanzamientos web</div>
@@ -712,6 +722,10 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
 function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) {
   const blank = { id: "", name: "", amount: "", period: "mensual", category: "infra", date: today(), notes: "" };
   const [form, setForm] = useState(blank);
+  const nowExp = new Date();
+  const curYM = `${nowExp.getFullYear()}-${String(nowExp.getMonth() + 1).padStart(2, "0")}`;
+  const [fromMonth, setFromMonth] = useState(curYM);
+  const [toMonth, setToMonth] = useState(curYM);
 
   const openAdd = () => { setForm(blank); setEditItem(null); setModal(true); };
   const openEdit = (e) => { setForm({ ...e }); setEditItem(e.id); setModal(true); };
@@ -724,27 +738,38 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
   const handleDelete = (id) => { if (window.confirm("¿Eliminar este gasto?")) onSave(expenses.filter(e => e.id !== id)); };
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const totalMonthlyEq = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
-  const totalUnico = expenses.filter(e => e.period === "unico").reduce((s, e) => s + Number(e.amount), 0);
+  const filtered = expenses.filter(e => toYM(e.date) >= fromMonth && toYM(e.date) <= toMonth);
+  const totalFiltered = filtered.reduce((s, e) => s + Number(e.amount), 0);
 
   return (
     <>
       <div className="section-header">
-        <div><div className="section-title">Gastos y compras</div><div className="section-sub">{expenses.length} registros</div></div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Agregar gasto</button>
+        <div>
+          <div className="section-title">Gastos y compras</div>
+          <div className="section-sub">{filtered.length} de {expenses.length} registros</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="date-range">
+            <span className="date-range-label">De</span>
+            <input type="month" className="month-input" value={fromMonth} onChange={e => setFromMonth(e.target.value)} />
+            <span className="date-range-label">a</span>
+            <input type="month" className="month-input" value={toMonth} onChange={e => setToMonth(e.target.value)} />
+          </div>
+          <button className="btn btn-primary" onClick={openAdd}>+ Agregar gasto</button>
+        </div>
       </div>
 
       <div className="summary-grid" style={{ gridTemplateColumns: `repeat(${CATEGORIES.length + 2}, 1fr)` }}>
         <div className="summary-cell">
-          <div className="summary-cell-label">Total recurrente/mes</div>
-          <div className="summary-cell-val" style={{ color: "#ff6b6b" }}>{fmt(totalMonthlyEq)}</div>
+          <div className="summary-cell-label">Total de gastos</div>
+          <div className="summary-cell-val" style={{ color: "#ff6b6b" }}>{fmt(totalFiltered)}</div>
         </div>
         <div className="summary-cell">
           <div className="summary-cell-label">Compras únicas</div>
-          <div className="summary-cell-val" style={{ color: "#10b981" }}>{fmt(totalUnico)}</div>
+          <div className="summary-cell-val" style={{ color: "#10b981" }}>{fmt(filtered.filter(e => e.period === "unico").reduce((s, e) => s + Number(e.amount), 0))}</div>
         </div>
         {CATEGORIES.map(cat => {
-          const amt = expenses.filter(e => e.category === cat.id).reduce((s, e) => s + monthlyAmt(e), 0);
+          const amt = filtered.filter(e => e.category === cat.id).reduce((s, e) => s + Number(e.amount), 0);
           return (
             <div key={cat.id} className="summary-cell">
               <div className="summary-cell-label"><span className="cat-dot" style={{ background: cat.color }} />{cat.label}</div>
@@ -756,15 +781,15 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
 
       <div className="card">
         <div className="card-body table-wrap">
-          {expenses.length === 0
-            ? <div className="empty"><div className="empty-icon">💸</div>No hay gastos registrados.</div>
+          {filtered.length === 0
+            ? <div className="empty"><div className="empty-icon">💸</div>{expenses.length === 0 ? "No hay gastos registrados." : "Sin gastos en el periodo seleccionado."}</div>
             : (
               <table className="table">
                 <thead>
                   <tr><th>Concepto</th><th>Periodo</th><th>Monto</th><th>Equiv. mensual</th><th>Categoría</th><th>Fecha</th><th>Notas</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {[...expenses].sort((a, b) => b.date.localeCompare(a.date)).map(e => (
+                  {[...filtered].sort((a, b) => b.date.localeCompare(a.date)).map(e => (
                     <tr key={e.id}>
                       <td style={{ fontWeight: 500, color: "#1a1625" }}>{e.name}</td>
                       <td>
