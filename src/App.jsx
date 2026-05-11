@@ -104,6 +104,7 @@ const STYLES = `
   .period-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 500; }
   .period-mensual { background: #4d9fff15; color: #4d9fff; border: 1px solid #4d9fff30; }
   .period-anual { background: #fb923c15; color: #fb923c; border: 1px solid #fb923c30; }
+  .period-unico { background: #10b98115; color: #10b981; border: 1px solid #10b98130; }
   .hint-box { margin-top: 12px; padding: 10px 14px; background: #fb923c10; border: 1px solid #fb923c25; border-radius: 10px; font-size: 12px; color: #fb923c; }
   .custom-tt { background: #ffffff; border: 1px solid #ddd8ef; border-radius: 12px; padding: 14px 18px; font-family: 'DM Mono', monospace; font-size: 12px; }
   .tt-label { color: #666; margin-bottom: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
@@ -136,7 +137,7 @@ const fmt = (n) => "$" + Number(n || 0).toLocaleString("es-MX", { minimumFractio
 const toYM = (d) => d.slice(0, 7);
 const today = () => new Date().toISOString().split("T")[0];
 const nowDate = new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-const monthlyAmt = (e) => Number(e.amount) / (e.period === "anual" ? 12 : 1);
+const monthlyAmt = (e) => e.period === "unico" ? 0 : Number(e.amount) / (e.period === "anual" ? 12 : 1);
 const clientMonthlyMaintenance = (c) => {
   if ((c.serviceType ?? "ia") === "ia") return Number(c.monthlyFee);
   return Number(c.maintenanceFee || 0) / (c.maintenancePeriod === "anual" ? 12 : 1);
@@ -152,7 +153,7 @@ const DEMO_EXPENSES = [
   { id: "e1", name: "Vercel Pro", amount: 400, period: "mensual", category: "infra", date: "2025-05-01", notes: "Plan Pro" },
   { id: "e2", name: "Supabase", amount: 0, period: "mensual", category: "infra", date: "2025-05-01", notes: "Free tier" },
   { id: "e3", name: "Dominio .com", amount: 250, period: "anual", category: "infra", date: "2025-04-10", notes: "Renovación anual" },
-  { id: "e4", name: "Cerebras API", amount: 150, period: "mensual", category: "herramientas", date: "2025-05-03", notes: "Uso del mes" },
+  { id: "e4", name: "Cerebras API", amount: 150, period: "unico", category: "herramientas", date: "2025-05-03", notes: "Tokens mayo" },
 ];
 
 function buildChartData(clients, expenses, fromMonth, toMonth) {
@@ -166,7 +167,8 @@ function buildChartData(clients, expenses, fromMonth, toMonth) {
   return months.map(m => {
     const activeInMonth = clients.filter(c => c.status === "activo" && toYM(c.startDate) <= m);
     const ingresos = activeInMonth.reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
-    const gastos = expenses.filter(e => toYM(e.date) === m).reduce((s, e) => s + monthlyAmt(e), 0);
+    const gastos = expenses.filter(e => toYM(e.date) === m).reduce((s, e) =>
+      s + (e.period === "unico" ? Number(e.amount) : monthlyAmt(e)), 0);
     const setup = clients.filter(c => toYM(c.startDate) === m).reduce((s, c) => s + Number(c.setupFee), 0);
     const ganancia = Math.max(0, ingresos - gastos);
     const label = new Date(m + "-02").toLocaleDateString("es-MX", { month: "short", year: "2-digit" });
@@ -239,6 +241,7 @@ export default function App() {
   const totalWebMaintenance = activeClients.filter(c => (c.serviceType ?? "ia") === "web").reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
   const totalWebRevenue = webClients.reduce((s, c) => s + Number(c.setupFee), 0);
   const totalExpMonthly = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
+  const totalExpUnico = expenses.filter(e => e.period === "unico" && toYM(e.date) === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`).reduce((s, e) => s + Number(e.amount), 0);
   const profit = totalMonthly - totalExpMonthly;
   const margin = totalMonthly > 0 ? Math.round((profit / totalMonthly) * 100) : 0;
   const now = new Date();
@@ -264,7 +267,7 @@ export default function App() {
           <div className="nav-date">{nowDate}</div>
         </nav>
         <main className="main">
-          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} now={now} />}
+          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} now={now} />}
           {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
           {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
         </main>
@@ -273,7 +276,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, now }) {
+function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, now }) {
   const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [toMonth, setToMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
@@ -307,9 +310,9 @@ function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMa
           <div className="stat-sub">{webClients.length} proyecto{webClients.length !== 1 ? "s" : ""} cerrado{webClients.length !== 1 ? "s" : ""}</div>
         </div>
         <div className="stat-card coral">
-          <div className="stat-label">Gastos mensuales</div>
+          <div className="stat-label">Gastos recurrentes</div>
           <div className="stat-value">{fmt(totalExpMonthly)}</div>
-          <div className="stat-sub">equivalente mensual</div>
+          <div className="stat-sub">equiv. mensual{totalExpUnico > 0 ? ` · compras únicas ${fmt(totalExpUnico)}` : ""}</div>
         </div>
         <div className="stat-card gold">
           <div className="stat-label">Ganancia neta</div>
@@ -657,6 +660,7 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const totalMonthlyEq = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
+  const totalUnico = expenses.filter(e => e.period === "unico").reduce((s, e) => s + Number(e.amount), 0);
 
   return (
     <>
@@ -665,10 +669,14 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
         <button className="btn btn-primary" onClick={openAdd}>+ Agregar gasto</button>
       </div>
 
-      <div className="summary-grid" style={{ gridTemplateColumns: `repeat(${CATEGORIES.length + 1}, 1fr)` }}>
+      <div className="summary-grid" style={{ gridTemplateColumns: `repeat(${CATEGORIES.length + 2}, 1fr)` }}>
         <div className="summary-cell">
-          <div className="summary-cell-label">Total equiv. mensual</div>
+          <div className="summary-cell-label">Total recurrente/mes</div>
           <div className="summary-cell-val" style={{ color: "#ff6b6b" }}>{fmt(totalMonthlyEq)}</div>
+        </div>
+        <div className="summary-cell">
+          <div className="summary-cell-label">Compras únicas</div>
+          <div className="summary-cell-val" style={{ color: "#10b981" }}>{fmt(totalUnico)}</div>
         </div>
         {CATEGORIES.map(cat => {
           const amt = expenses.filter(e => e.category === cat.id).reduce((s, e) => s + monthlyAmt(e), 0);
@@ -695,14 +703,16 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
                     <tr key={e.id}>
                       <td style={{ fontWeight: 500, color: "#1a1625" }}>{e.name}</td>
                       <td>
-                        <span className={`period-badge ${e.period === "anual" ? "period-anual" : "period-mensual"}`}>
-                          {e.period === "anual" ? "Anual" : "Mensual"}
+                        <span className={`period-badge ${e.period === "anual" ? "period-anual" : e.period === "unico" ? "period-unico" : "period-mensual"}`}>
+                          {e.period === "anual" ? "Anual" : e.period === "unico" ? "Pago único" : "Mensual"}
                         </span>
                       </td>
                       <td className="mono" style={{ color: "#ff6b6b" }}>{fmt(e.amount)}</td>
                       <td>
                         {e.period === "anual"
                           ? <span className="mono" style={{ color: "#8b82a8" }}>{fmt(monthlyAmt(e))}<span style={{ color: "#a8a0c0", fontSize: 10, marginLeft: 4 }}>/mes</span></span>
+                          : e.period === "unico"
+                          ? <span style={{ color: "#10b981", fontSize: 11 }}>no recurrente</span>
                           : <span style={{ color: "#ccc", fontSize: 12 }}>—</span>}
                       </td>
                       <td>
@@ -744,6 +754,7 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
                 <select className="form-select" value={form.period} onChange={e => f("period", e.target.value)}>
                   <option value="mensual">Mensual</option>
                   <option value="anual">Anual</option>
+                  <option value="unico">Único / cuando lo necesito</option>
                 </select>
               </div>
               <div className="form-group">
@@ -764,6 +775,11 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
             {form.period === "anual" && Number(form.amount) > 0 && (
               <div className="hint-box">
                 Equiv. mensual: <strong>{fmt(Number(form.amount) / 12)}</strong> / mes
+              </div>
+            )}
+            {form.period === "unico" && (
+              <div style={{ marginTop: 12, padding: "10px 14px", background: "#10b98110", border: "1px solid #10b98125", borderRadius: 10, fontSize: 12, color: "#10b981" }}>
+                Este gasto no afecta tus gastos recurrentes mensuales — solo aparece en la gráfica el mes que lo pagaste.
               </div>
             )}
             <div className="modal-actions">
