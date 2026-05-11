@@ -240,11 +240,11 @@ export default function App() {
   const totalIAMonthly = iaClients.reduce((s, c) => s + Number(c.monthlyFee), 0);
   const totalWebMaintenance = activeClients.filter(c => (c.serviceType ?? "ia") === "web").reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
   const totalWebRevenue = webClients.reduce((s, c) => s + Number(c.setupFee), 0);
+  const now = new Date();
   const totalExpMonthly = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
   const totalExpUnico = expenses.filter(e => e.period === "unico" && toYM(e.date) === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`).reduce((s, e) => s + Number(e.amount), 0);
   const profit = totalMonthly - totalExpMonthly;
   const margin = totalMonthly > 0 ? Math.round((profit / totalMonthly) * 100) : 0;
-  const now = new Date();
   const invoiceClients = clients.filter(c => c.needsInvoice && c.status === "activo");
 
   if (!loaded) return (
