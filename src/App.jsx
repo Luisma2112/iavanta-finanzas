@@ -274,7 +274,7 @@ export default function App() {
 }
 
 function Dashboard({ clients, expenses, totalMonthly, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, now }) {
-  const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-01`);
+  const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [toMonth, setToMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
   const chartData = buildChartData(clients, expenses, fromMonth, toMonth);
