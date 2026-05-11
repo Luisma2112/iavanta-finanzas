@@ -145,6 +145,14 @@ const clientMonthlyMaintenance = (c) => {
 const invoiceKey = (clientId, year, month) => `${clientId}-${year}-${month}`;
 const paymentKey = (clientId, year, month) => `pay-${clientId}-${year}-${month}`;
 
+// Para clientes web: pago único del proyecto (setupFee). Para IA: mensualidad por mes.
+const clientPaymentKey = (c, year, month) =>
+  (c.serviceType ?? "ia") === "web" ? `pay-${c.id}-setup` : paymentKey(c.id, year, month);
+const clientPaymentAmount = (c) =>
+  (c.serviceType ?? "ia") === "web" ? Number(c.setupFee) : Number(c.monthlyFee);
+const clientPaymentLabel = (c) =>
+  (c.serviceType ?? "ia") === "web" ? "pago del proyecto" : "mensualidad";
+
 const DEMO_CLIENTS = [
   { id: "c1", name: "Clínica Hernández", serviceType: "ia", setupFee: 8000, monthlyFee: 2500, needsInvoice: true, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-03-01", notes: "Requiere CFDI" },
   { id: "c2", name: "Inmobiliaria Pérez", serviceType: "ia", setupFee: 10000, monthlyFee: 3000, needsInvoice: false, billingDay: 15, billingFreq: "mensual", status: "activo", startDate: "2025-04-15", notes: "" },
@@ -254,7 +262,9 @@ export default function App() {
   const totalWebRevenue = webClients.reduce((s, c) => s + Number(c.setupFee), 0);
   const now = new Date();
   const nowYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const totalCobrado = activeClients.filter(c => paymentsReceived.includes(paymentKey(c.id, now.getFullYear(), now.getMonth() + 1))).reduce((s, c) => s + clientMonthlyMaintenance(c), 0);
+  const totalCobrado = activeClients
+    .filter(c => clientPaymentAmount(c) > 0 && paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1)))
+    .reduce((s, c) => s + clientPaymentAmount(c), 0);
   const totalExpMonthly = expenses.reduce((s, e) => s + monthlyAmt(e), 0);
   const totalExpUnico = expenses.filter(e => e.period === "unico" && toYM(e.date) === nowYM).reduce((s, e) => s + Number(e.amount), 0);
   const profit = totalMonthly - totalExpMonthly;
@@ -316,7 +326,7 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonth
         <div className="stat-card purple">
           <div className="stat-label">Cobrado este mes</div>
           <div className="stat-value">{fmt(totalCobrado)}</div>
-          <div className="stat-sub">de {fmt(totalMonthly)} facturado · {activeClients.length - activeClients.filter(c => paymentsReceived.includes(paymentKey(c.id, now.getFullYear(), now.getMonth() + 1))).length} pendiente{activeClients.length - activeClients.filter(c => paymentsReceived.includes(paymentKey(c.id, now.getFullYear(), now.getMonth() + 1))).length !== 1 ? "s" : ""}</div>
+          <div className="stat-sub">de {fmt(totalMonthly)} recurrente · {activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length} pago{activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length !== 1 ? "s" : ""} pendiente{activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, now.getFullYear(), now.getMonth() + 1))).length !== 1 ? "s" : ""}</div>
         </div>
         <div className="stat-card blue">
           <div className="stat-label">Lanzamientos web</div>
@@ -380,8 +390,8 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonth
       {(() => {
         const year = now.getFullYear();
         const month = now.getMonth() + 1;
-        const pendingPay = activeClients.filter(c => clientMonthlyMaintenance(c) > 0 && !paymentsReceived.includes(paymentKey(c.id, year, month)));
-        const receivedPay = activeClients.filter(c => clientMonthlyMaintenance(c) > 0 && paymentsReceived.includes(paymentKey(c.id, year, month)));
+        const pendingPay = activeClients.filter(c => clientPaymentAmount(c) > 0 && !paymentsReceived.includes(clientPaymentKey(c, year, month)));
+        const receivedPay = activeClients.filter(c => clientPaymentAmount(c) > 0 && paymentsReceived.includes(clientPaymentKey(c, year, month)));
         if (pendingPay.length === 0 && receivedPay.length === 0) return null;
         return (
           <div style={{ marginBottom: 24 }}>
@@ -394,11 +404,13 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonth
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span>💳</span>
                   <span>
-                    <strong>{c.name}</strong> — pago pendiente del mes de <strong>{MONTHS_ES[now.getMonth()]} {year}</strong>. Monto: <strong>{fmt(clientMonthlyMaintenance(c))}</strong>
+                    <strong>{c.name}</strong> — {clientPaymentLabel(c)} pendiente
+                    {(c.serviceType ?? "ia") === "ia" && <> del mes de <strong>{MONTHS_ES[now.getMonth()]} {year}</strong></>}.
+                    {" "}Monto: <strong>{fmt(clientPaymentAmount(c))}</strong>
                   </span>
                 </div>
                 <button
-                  onClick={() => onMarkPayment(paymentKey(c.id, year, month))}
+                  onClick={() => onMarkPayment(clientPaymentKey(c, year, month))}
                   style={{ flexShrink: 0, background: "#9b5cff20", border: "1px solid #9b5cff40", color: "#9b5cff", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "DM Mono, monospace", whiteSpace: "nowrap" }}
                 >
                   ✓ Marcar pagado
@@ -408,7 +420,8 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalIAMonth
             {receivedPay.map(c => (
               <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderRadius: 12, fontSize: 12, marginBottom: 8, background: "#9b5cff08", border: "1px solid #9b5cff20", color: "#9b5cff" }}>
                 <span>✓</span>
-                <span><strong>{c.name}</strong> — {fmt(clientMonthlyMaintenance(c))} cobrado en {MONTHS_ES[now.getMonth()]} {year}</span>
+                <span><strong>{c.name}</strong> — {fmt(clientPaymentAmount(c))} cobrado ({clientPaymentLabel(c)}
+                {(c.serviceType ?? "ia") === "ia" && <> {MONTHS_ES[now.getMonth()]} {year}</>})</span>
               </div>
             ))}
           </div>
