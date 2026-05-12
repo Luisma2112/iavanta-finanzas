@@ -106,6 +106,7 @@ const STYLES = `
   .period-anual { background: #fb923c15; color: #fb923c; border: 1px solid #fb923c30; }
   .period-unico { background: #10b98115; color: #10b981; border: 1px solid #10b98130; }
   .hint-box { margin-top: 12px; padding: 10px 14px; background: #fb923c10; border: 1px solid #fb923c25; border-radius: 10px; font-size: 12px; color: #fb923c; }
+  textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.5; }
   .custom-tt { background: #ffffff; border: 1px solid #ddd8ef; border-radius: 12px; padding: 14px 18px; font-family: 'DM Mono', monospace; font-size: 12px; }
   .tt-label { color: #666; margin-bottom: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
   .tt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
@@ -120,6 +121,16 @@ const CATEGORIES = [
   { id: "marketing", label: "Marketing", color: "#fb923c" },
   { id: "legal", label: "Legal / Fiscal", color: "#ffd93d" },
   { id: "otros", label: "Otros", color: "#8b82a8" },
+];
+
+const WEB_SUBTYPES = [
+  { id: "landing",       label: "Landing Page",           price: 2500, hint: "desde $2,500 · 1–4 páginas" },
+  { id: "corporativa",   label: "Corporativa",            price: 4700, hint: "desde $4,700 · 4–10 páginas" },
+  { id: "ecommerce",     label: "E-Commerce",             price: 8900, hint: "desde $8,900 · catálogo + carrito" },
+  { id: "rediseno",      label: "Rediseño",               price: 1800, hint: "desde $1,800 hasta $5,200" },
+  { id: "seo",           label: "SEO Básico",             price: 500,  hint: "$500 – $1,500" },
+  { id: "logo",          label: "Logo + Identidad Visual",price: 500,  hint: "$500 – $2,500" },
+  { id: "mantenimiento", label: "Mantenimiento",          price: 200,  hint: "$200 / hora" },
 ];
 
 const CHART_BARS = [
@@ -544,7 +555,7 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalFactura
 }
 
 function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
-  const blank = { id: "", name: "", serviceType: "ia", setupFee: "", monthlyFee: "", maintenanceFee: "", maintenancePeriod: "mensual", needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: today(), notes: "" };
+  const blank = { id: "", name: "", serviceType: "ia", webServiceSubtype: "", setupFee: "", monthlyFee: "", maintenanceFee: "", maintenancePeriod: "mensual", needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: today(), notes: "" };
   const [form, setForm] = useState(blank);
 
   const openAdd = () => { setForm(blank); setEditItem(null); setModal(true); };
@@ -602,9 +613,13 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                         {c.notes && <div style={{ fontSize: 11, color: "#9990b8", marginTop: 2 }}>{c.notes}</div>}
                       </td>
                       <td>
-                        {isWeb
-                          ? <span className="badge badge-teal">🌐 Web</span>
-                          : <span className="badge badge-purple">🤖 IA</span>}
+                        {isWeb ? (
+                          <span className="badge badge-teal">
+                            🌐 {WEB_SUBTYPES.find(s => s.id === c.webServiceSubtype)?.label ?? "Web"}
+                          </span>
+                        ) : (
+                          <span className="badge badge-purple">🤖 IA</span>
+                        )}
                       </td>
                       <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#8b82a8" }}>{fmt(c.setupFee)}</td>
                       <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#9b5cff", fontSize: recurrente === "—" ? 14 : 13 }}>
@@ -643,14 +658,39 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
               </div>
               <div className="form-group full">
                 <div className="form-label">Tipo de servicio</div>
-                <select className="form-select" value={form.serviceType ?? "ia"} onChange={e => f("serviceType", e.target.value)}>
+                <select className="form-select" value={form.serviceType ?? "ia"} onChange={e => { f("serviceType", e.target.value); f("webServiceSubtype", ""); }}>
                   <option value="ia">🤖 IAvanta IA (mensualidad recurrente)</option>
                   <option value="web">🌐 Página web (pago único)</option>
                 </select>
               </div>
+              {(form.serviceType ?? "ia") === "web" && (
+                <div className="form-group full">
+                  <div className="form-label">Tipo de proyecto web</div>
+                  <select className="form-select" value={form.webServiceSubtype ?? ""} onChange={e => { f("webServiceSubtype", e.target.value); f("setupFee", ""); }}>
+                    <option value="">— Seleccionar —</option>
+                    {WEB_SUBTYPES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                  {form.webServiceSubtype && (() => {
+                    const sub = WEB_SUBTYPES.find(s => s.id === form.webServiceSubtype);
+                    return sub ? <div style={{ marginTop: 6, fontSize: 11, color: "#9b5cff" }}>{sub.hint}</div> : null;
+                  })()}
+                </div>
+              )}
               <div className="form-group">
                 <div className="form-label">{(form.serviceType ?? "ia") === "web" ? "Precio del proyecto (MXN)" : "Setup fee (MXN)"}</div>
-                <input className="form-input" type="number" value={form.setupFee} onChange={e => f("setupFee", e.target.value)} placeholder="0" />
+                <input
+                  className="form-input"
+                  type="number"
+                  value={form.setupFee}
+                  onChange={e => f("setupFee", e.target.value)}
+                  placeholder={(() => {
+                    if ((form.serviceType ?? "ia") === "web" && form.webServiceSubtype) {
+                      const sub = WEB_SUBTYPES.find(s => s.id === form.webServiceSubtype);
+                      return sub ? `${sub.price}` : "0";
+                    }
+                    return "0";
+                  })()}
+                />
               </div>
               {(form.serviceType ?? "ia") === "ia" ? (
                 <div className="form-group">
@@ -705,7 +745,7 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
               </div>
               <div className="form-group full">
                 <div className="form-label">Notas</div>
-                <input className="form-input" value={form.notes} onChange={e => f("notes", e.target.value)} placeholder="Notas adicionales..." />
+                <textarea className="form-input" value={form.notes} onChange={e => f("notes", e.target.value)} placeholder="Notas adicionales..." />
               </div>
             </div>
             <div className="modal-actions">
@@ -859,7 +899,7 @@ function Expenses({ expenses, onSave, modal, setModal, editItem, setEditItem }) 
               </div>
               <div className="form-group full">
                 <div className="form-label">Notas</div>
-                <input className="form-input" value={form.notes} onChange={e => f("notes", e.target.value)} placeholder="Opcional..." />
+                <textarea className="form-input" value={form.notes} onChange={e => f("notes", e.target.value)} placeholder="Opcional..." />
               </div>
             </div>
             {form.period === "anual" && Number(form.amount) > 0 && (
