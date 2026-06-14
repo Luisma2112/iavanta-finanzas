@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { Cotizador } from "./Cotizador.jsx";
 
 const GOOGLE_FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');`;
 
@@ -302,17 +303,21 @@ export default function App() {
         <nav className="nav">
           <div className="nav-logo">IAvanta<span> / Finanzas</span></div>
           <div className="nav-tabs">
-            {[["dashboard", "Dashboard"], ["clients", "Clientes"], ["expenses", "Gastos"]].map(([id, label]) => (
+            {[["dashboard", "Dashboard"], ["clients", "Clientes"], ["expenses", "Gastos"], ["cotizador", "Cotizador"]].map(([id, label]) => (
               <button key={id} className={`nav-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{label}</button>
             ))}
           </div>
           <div className="nav-date">{nowDate}</div>
         </nav>
-        <main className="main">
-          {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalFacturado={totalFacturado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} />}
-          {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
-          {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
-        </main>
+        {tab === "cotizador" ? (
+          <Cotizador />
+        ) : (
+          <main className="main">
+            {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalFacturado={totalFacturado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} />}
+            {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
+            {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
+          </main>
+        )}
       </div>
     </>
   );
