@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Cotizador } from "./Cotizador.jsx";
+import { Prospectos, DEMO_PROSPECTS, prospectsNeedingFollowUp, daysOverdue } from "./Prospectos.jsx";
+import { WEB_SUBTYPES, fmt, today, toYM } from "./shared.js";
 
 const GOOGLE_FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');`;
 
@@ -114,6 +116,34 @@ const STYLES = `
   .tt-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
   .tt-name { color: #777; flex: 1; }
   .tt-val { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: -0.3px; }
+  .kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+  .kanban-col { flex: 0 0 232px; background: #ffffff; border: 1px solid #e0dbf0; box-shadow: 0 2px 12px rgba(155,92,255,0.06); border-radius: 14px; overflow: hidden; }
+  .kanban-col-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-top: 2px solid; border-bottom: 1px solid #e8e3f5; font-size: 12px; font-weight: 500; }
+  .kanban-count { background: #ede9f8; color: #8b82a8; border-radius: 20px; padding: 1px 8px; font-size: 11px; }
+  .kanban-col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 80px; }
+  .kanban-empty { text-align: center; color: #cdc7e0; font-size: 12px; padding: 16px 0; }
+  .p-card { background: #faf9fe; border: 1px solid #e8e3f5; border-radius: 12px; padding: 12px; transition: border-color 0.15s; }
+  .p-card:hover { border-color: #c9bdf0; }
+  .p-name { font-weight: 500; font-size: 13px; color: #1a1625; line-height: 1.3; }
+  .p-contact { font-size: 11px; color: #9990b8; margin-top: 2px; }
+  .p-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 10px; }
+  .p-meta .badge { font-size: 10px; padding: 2px 7px; }
+  .p-value { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: #1a1625; letter-spacing: -0.3px; }
+  .p-links { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .link-chip { display: inline-flex; align-items: center; gap: 4px; background: #9b5cff12; border: 1px solid #9b5cff25; color: #9b5cff; border-radius: 7px; padding: 4px 8px; font-family: 'DM Mono', monospace; font-size: 10px; text-decoration: none; cursor: pointer; transition: all 0.15s; }
+  .link-chip:hover { background: #9b5cff20; }
+  .link-chip.wa { background: #10b98112; border-color: #10b98130; color: #10b981; }
+  .link-chip.wa:hover { background: #10b98122; }
+  .p-due { margin-top: 9px; font-size: 10px; color: #9990b8; }
+  .p-due.late { color: #fb923c; font-weight: 500; }
+  .p-converted { margin-top: 9px; font-size: 10px; color: #10b981; }
+  .p-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 9px; border-top: 1px solid #ede9f8; }
+  .p-move { display: flex; gap: 4px; }
+  .move-btn { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; background: #ede9f8; border: none; border-radius: 6px; color: #8b82a8; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .move-btn:hover:not(:disabled) { background: #9b5cff15; color: #9b5cff; }
+  .move-btn.danger:hover:not(:disabled) { background: #ff6b6b20; color: #ff6b6b; }
+  .move-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .p-convert { width: 100%; justify-content: center; margin-top: 10px; }
 `;
 
 const CATEGORIES = [
@@ -122,16 +152,6 @@ const CATEGORIES = [
   { id: "marketing", label: "Marketing", color: "#fb923c" },
   { id: "legal", label: "Legal / Fiscal", color: "#ffd93d" },
   { id: "otros", label: "Otros", color: "#8b82a8" },
-];
-
-const WEB_SUBTYPES = [
-  { id: "landing",       label: "Landing Page",           price: 2500, hint: "desde $2,500 · 1–4 páginas" },
-  { id: "corporativa",   label: "Corporativa",            price: 4700, hint: "desde $4,700 · 4–10 páginas" },
-  { id: "ecommerce",     label: "E-Commerce",             price: 8900, hint: "desde $8,900 · catálogo + carrito" },
-  { id: "rediseno",      label: "Rediseño",               price: 1800, hint: "desde $1,800 hasta $5,200" },
-  { id: "seo",           label: "SEO Básico",             price: 500,  hint: "$500 – $1,500" },
-  { id: "logo",          label: "Logo + Identidad Visual",price: 500,  hint: "$500 – $2,500" },
-  { id: "mantenimiento", label: "Mantenimiento",          price: 200,  hint: "$200 / hora" },
 ];
 
 const CHART_BARS = [
@@ -144,9 +164,6 @@ const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Ago
 
 const getCatColor = (id) => CATEGORIES.find(c => c.id === id)?.color || "#888";
 const getCatLabel = (id) => CATEGORIES.find(c => c.id === id)?.label || id;
-const fmt = (n) => "$" + Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const toYM = (d) => d.slice(0, 7);
-const today = () => new Date().toISOString().split("T")[0];
 const nowDate = new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 const monthlyAmt = (e) => e.period === "unico" ? 0 : Number(e.amount) / (e.period === "anual" ? 12 : 1);
 const clientMonthlyMaintenance = (c) => {
@@ -223,6 +240,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [clients, setClients] = useState(DEMO_CLIENTS);
   const [expenses, setExpenses] = useState(DEMO_EXPENSES);
+  const [prospects, setProspects] = useState(DEMO_PROSPECTS);
   const [loaded, setLoaded] = useState(false);
   const [clientModal, setClientModal] = useState(false);
   const [expenseModal, setExpenseModal] = useState(false);
@@ -237,10 +255,12 @@ export default function App() {
       const e = localStorage.getItem("iavanta-expenses");
       const inv = localStorage.getItem("iavanta-invoices-sent");
       const pay = localStorage.getItem("iavanta-payments");
+      const pr = localStorage.getItem("iavanta-prospects");
       if (c) setClients(JSON.parse(c));
       if (e) setExpenses(JSON.parse(e));
       if (inv) setInvoicesSent(JSON.parse(inv));
       if (pay) setPaymentsReceived(JSON.parse(pay));
+      if (pr) setProspects(JSON.parse(pr));
     } catch (_) {}
     setLoaded(true);
   }, []);
@@ -253,6 +273,41 @@ export default function App() {
   const saveExpenses = useCallback((data) => {
     setExpenses(data);
     try { localStorage.setItem("iavanta-expenses", JSON.stringify(data)); } catch (_) {}
+  }, []);
+
+  const saveProspects = useCallback((data) => {
+    setProspects(data);
+    try { localStorage.setItem("iavanta-prospects", JSON.stringify(data)); } catch (_) {}
+  }, []);
+
+  // Un prospecto ganado se vuelve cliente activo: el valor estimado pasa a ser
+  // el precio del proyecto (web) o la mensualidad (IA).
+  const convertProspect = useCallback((p) => {
+    const id = `c${Date.now()}`;
+    const isWeb = p.serviceType === "web";
+    const value = Number(p.estValue || 0);
+    const client = {
+      id,
+      name: p.name,
+      serviceType: p.serviceType,
+      webServiceSubtype: p.webServiceSubtype || "",
+      setupFee: isWeb ? value : 0,
+      monthlyFee: isWeb ? 0 : value,
+      maintenanceFee: "",
+      maintenancePeriod: "mensual",
+      needsInvoice: false,
+      billingDay: 1,
+      billingFreq: "mensual",
+      status: "activo",
+      startDate: today(),
+      notes: [p.notes, p.demoUrl && `Demo: ${p.demoUrl}`].filter(Boolean).join(" · "),
+    };
+    setClients(prev => {
+      const updated = [...prev, client];
+      try { localStorage.setItem("iavanta-clients", JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+    return id;
   }, []);
 
   const markInvoiceSent = useCallback((key) => {
@@ -289,6 +344,7 @@ export default function App() {
   const profit = totalMonthly - totalExpMonthly;
   const margin = totalMonthly > 0 ? Math.round((profit / totalMonthly) * 100) : 0;
   const invoiceClients = clients.filter(c => c.needsInvoice && c.status === "activo");
+  const followUps = prospectsNeedingFollowUp(prospects);
 
   if (!loaded) return (
     <div style={{ background: "#f2f0f8", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#a8a0c0", fontFamily: "DM Mono, monospace", fontSize: 13 }}>
@@ -303,7 +359,7 @@ export default function App() {
         <nav className="nav">
           <div className="nav-logo">IAvanta<span> / Finanzas</span></div>
           <div className="nav-tabs">
-            {[["dashboard", "Dashboard"], ["clients", "Clientes"], ["expenses", "Gastos"], ["cotizador", "Cotizador"]].map(([id, label]) => (
+            {[["dashboard", "Dashboard"], ["prospects", "Prospectos"], ["clients", "Clientes"], ["expenses", "Gastos"], ["cotizador", "Cotizador"]].map(([id, label]) => (
               <button key={id} className={`nav-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{label}</button>
             ))}
           </div>
@@ -313,7 +369,8 @@ export default function App() {
           <Cotizador />
         ) : (
           <main className="main">
-            {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalFacturado={totalFacturado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} />}
+            {tab === "dashboard" && <Dashboard clients={clients} expenses={expenses} totalMonthly={totalMonthly} totalCobrado={totalCobrado} totalFacturado={totalFacturado} totalIAMonthly={totalIAMonthly} totalWebMaintenance={totalWebMaintenance} totalWebRevenue={totalWebRevenue} totalExpMonthly={totalExpMonthly} totalExpUnico={totalExpUnico} profit={profit} margin={margin} activeClients={activeClients} iaClients={iaClients} webClients={webClients} invoiceClients={invoiceClients} invoicesSent={invoicesSent} onMarkInvoiceSent={markInvoiceSent} paymentsReceived={paymentsReceived} onMarkPayment={markPaymentReceived} now={now} followUps={followUps} onGoToProspects={() => setTab("prospects")} />}
+            {tab === "prospects" && <Prospectos prospects={prospects} onSave={saveProspects} onConvert={convertProspect} />}
             {tab === "clients" && <Clients clients={clients} onSave={saveClients} modal={clientModal} setModal={setClientModal} editItem={editClient} setEditItem={setEditClient} />}
             {tab === "expenses" && <Expenses expenses={expenses} onSave={saveExpenses} modal={expenseModal} setModal={setExpenseModal} editItem={editExpense} setEditItem={setEditExpense} />}
           </main>
@@ -323,7 +380,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalFacturado, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, paymentsReceived, onMarkPayment, now }) {
+function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalFacturado, totalIAMonthly, totalWebMaintenance, totalWebRevenue, totalExpMonthly, totalExpUnico, profit, margin, activeClients, iaClients, webClients, invoiceClients, invoicesSent, onMarkInvoiceSent, paymentsReceived, onMarkPayment, now, followUps, onGoToProspects }) {
   const [fromMonth, setFromMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [toMonth, setToMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
@@ -412,6 +469,34 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalFactura
           )
         }
       </div>
+
+      {followUps.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 14, color: "#6b6580", marginBottom: 10 }}>
+            Seguimientos pendientes
+          </div>
+          {followUps.map(p => {
+            const dias = daysOverdue(p.nextActionDate);
+            return (
+              <div key={p.id} className="alert" style={{ background: "#fb923c0a", borderColor: "#fb923c25", color: "#c2691a", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span>⏰</span>
+                  <span>
+                    <strong>{p.name}</strong> — {dias === 0 ? "toca dar seguimiento hoy" : `sin seguimiento desde hace ${dias} día${dias !== 1 ? "s" : ""}`}
+                    {Number(p.estValue) > 0 && <> · valor estimado <strong>{fmt(p.estValue)}</strong></>}
+                  </span>
+                </div>
+                <button
+                  onClick={onGoToProspects}
+                  style={{ flexShrink: 0, background: "#fb923c20", border: "1px solid #fb923c40", color: "#fb923c", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "DM Mono, monospace", whiteSpace: "nowrap" }}
+                >
+                  Ver prospecto
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {(() => {
         const year = now.getFullYear();
