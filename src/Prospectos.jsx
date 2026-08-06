@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { WEB_SUBTYPES, fmt, today, toYM } from "./shared.js";
+import { WEB_SUBTYPES, serviceMeta, fmt, today, toYM } from "./shared.js";
 
 export const PROSPECT_STAGES = [
   { id: "nuevo",       label: "Nuevo",        color: "#8b82a8", prob: 0.10 },
@@ -170,9 +170,7 @@ export function Prospectos({ prospects, onSave, onConvert }) {
                         <div className="p-contact">{[p.contact, sourceLabel(p.source)].filter(Boolean).join(" · ")}</div>
 
                         <div className="p-meta">
-                          {p.serviceType === "web"
-                            ? <span className="badge badge-teal">🌐 {WEB_SUBTYPES.find(s => s.id === p.webServiceSubtype)?.label ?? "Web"}</span>
-                            : <span className="badge badge-purple">🤖 IA</span>}
+                          {(() => { const m = serviceMeta(p); return <span className={`badge ${m.badge}`}>{m.icon} {m.label}</span>; })()}
                           <span className="p-value">{fmt(p.estValue)}</span>
                         </div>
 
@@ -274,6 +272,7 @@ export function Prospectos({ prospects, onSave, onConvert }) {
                 <select className="form-select" value={form.serviceType} onChange={e => { f("serviceType", e.target.value); f("webServiceSubtype", ""); f("estValue", ""); }}>
                   <option value="web">🌐 Página web (pago único)</option>
                   <option value="ia">🤖 IAvanta IA (mensualidad recurrente)</option>
+                  <option value="suscripcion">🔁 Suscripción / renta mensual</option>
                 </select>
               </div>
               {form.serviceType === "web" && (

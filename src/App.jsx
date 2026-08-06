@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Cotizador } from "./Cotizador.jsx";
 import { Prospectos, DEMO_PROSPECTS, prospectsNeedingFollowUp, daysOverdue } from "./Prospectos.jsx";
-import { WEB_SUBTYPES, fmt, today, toYM } from "./shared.js";
+import { WEB_SUBTYPES, serviceMeta, fmt, today, toYM } from "./shared.js";
 
 const GOOGLE_FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');`;
 
@@ -167,8 +167,9 @@ const getCatLabel = (id) => CATEGORIES.find(c => c.id === id)?.label || id;
 const nowDate = new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 const monthlyAmt = (e) => e.period === "unico" ? 0 : Number(e.amount) / (e.period === "anual" ? 12 : 1);
 const clientMonthlyMaintenance = (c) => {
-  if ((c.serviceType ?? "ia") === "ia") return Number(c.monthlyFee);
-  return Number(c.maintenanceFee || 0) / (c.maintenancePeriod === "anual" ? 12 : 1);
+  // Web = mantenimiento (mensual o anual prorrateado). IA y suscripción = mensualidad recurrente.
+  if ((c.serviceType ?? "ia") === "web") return Number(c.maintenanceFee || 0) / (c.maintenancePeriod === "anual" ? 12 : 1);
+  return Number(c.monthlyFee);
 };
 const invoiceKey = (clientId, year, month) => `${clientId}-${year}-${month}`;
 const paymentKey = (clientId, year, month) => `pay-${clientId}-${year}-${month}`;
@@ -185,6 +186,7 @@ const DEMO_CLIENTS = [
   { id: "c1", name: "Clínica Hernández", serviceType: "ia", setupFee: 8000, monthlyFee: 2500, needsInvoice: true, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-03-01", notes: "Requiere CFDI" },
   { id: "c2", name: "Inmobiliaria Pérez", serviceType: "ia", setupFee: 10000, monthlyFee: 3000, needsInvoice: false, billingDay: 15, billingFreq: "mensual", status: "activo", startDate: "2025-04-15", notes: "" },
   { id: "c3", name: "Restaurante Don Pepe", serviceType: "web", setupFee: 15000, monthlyFee: 0, maintenanceFee: 800, maintenancePeriod: "mensual", needsInvoice: false, billingDay: 1, billingFreq: "mensual", status: "activo", startDate: "2025-05-01", notes: "Landing page + menú digital" },
+  { id: "c4", name: "Boutique Aurora", serviceType: "suscripcion", setupFee: 0, monthlyFee: 1200, maintenanceFee: 0, maintenancePeriod: "mensual", needsInvoice: false, billingDay: 5, billingFreq: "mensual", status: "activo", startDate: "2025-06-01", notes: "Renta mensual de sitio + soporte" },
 ];
 const DEMO_EXPENSES = [
   { id: "e1", name: "Vercel Pro", amount: 400, period: "mensual", category: "infra", date: "2025-05-01", notes: "Plan Pro" },
@@ -596,15 +598,14 @@ function Dashboard({ clients, expenses, totalMonthly, totalCobrado, totalFactura
                   <tbody>
                     {activeClients.map(c => {
                       const isWeb = (c.serviceType ?? "ia") === "web";
+                      const meta = serviceMeta(c);
                       return (
                         <tr key={c.id}>
                           <td style={{ fontWeight: 500, color: "#1a1625" }}>{c.name}</td>
                           <td>
-                            {isWeb
-                              ? <span className="badge badge-teal">🌐 Web</span>
-                              : <span className="badge badge-purple">🤖 IA</span>}
+                            <span className={`badge ${meta.badge}`}>{meta.icon} {meta.label}</span>
                           </td>
-                          <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#9b5cff" }}>
+                          <td className="mono" style={{ color: meta.color }}>
                             {isWeb ? fmt(c.setupFee) : fmt(c.monthlyFee) + "/mes"}
                           </td>
                           <td>{c.needsInvoice ? <span className="badge badge-gold">Sí</span> : <span className="badge badge-gray">No</span>}</td>
@@ -693,6 +694,7 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                 <tbody>
                   {clients.map(c => {
                     const isWeb = (c.serviceType ?? "ia") === "web";
+                    const meta = serviceMeta(c);
                     const recurrente = isWeb
                       ? (Number(c.maintenanceFee) > 0 ? `${fmt(c.maintenanceFee)}/${c.maintenancePeriod === "anual" ? "año" : "mes"}` : "—")
                       : fmt(c.monthlyFee) + "/mes";
@@ -703,16 +705,10 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                         {c.notes && <div style={{ fontSize: 11, color: "#9990b8", marginTop: 2 }}>{c.notes}</div>}
                       </td>
                       <td>
-                        {isWeb ? (
-                          <span className="badge badge-teal">
-                            🌐 {WEB_SUBTYPES.find(s => s.id === c.webServiceSubtype)?.label ?? "Web"}
-                          </span>
-                        ) : (
-                          <span className="badge badge-purple">🤖 IA</span>
-                        )}
+                        <span className={`badge ${meta.badge}`}>{meta.icon} {meta.label}</span>
                       </td>
                       <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#8b82a8" }}>{fmt(c.setupFee)}</td>
-                      <td className="mono" style={{ color: isWeb ? "#0d9faa" : "#9b5cff", fontSize: recurrente === "—" ? 14 : 13 }}>
+                      <td className="mono" style={{ color: recurrente === "—" ? "#8b82a8" : meta.color, fontSize: recurrente === "—" ? 14 : 13 }}>
                         {recurrente}
                       </td>
                       <td>{c.needsInvoice ? <span className="badge badge-gold">Sí — {c.billingFreq}</span> : <span className="badge badge-gray">No</span>}</td>
@@ -751,6 +747,7 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                 <select className="form-select" value={form.serviceType ?? "ia"} onChange={e => { f("serviceType", e.target.value); f("webServiceSubtype", ""); }}>
                   <option value="ia">🤖 IAvanta IA (mensualidad recurrente)</option>
                   <option value="web">🌐 Página web (pago único)</option>
+                  <option value="suscripcion">🔁 Suscripción / renta mensual</option>
                 </select>
               </div>
               {(form.serviceType ?? "ia") === "web" && (
@@ -767,7 +764,12 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                 </div>
               )}
               <div className="form-group">
-                <div className="form-label">{(form.serviceType ?? "ia") === "web" ? "Precio del proyecto (MXN)" : "Setup fee (MXN)"}</div>
+                <div className="form-label">{(() => {
+                  const t = form.serviceType ?? "ia";
+                  if (t === "web") return "Precio del proyecto (MXN)";
+                  if (t === "suscripcion") return "Cuota inicial / alta (MXN)";
+                  return "Setup fee (MXN)";
+                })()}</div>
                 <input
                   className="form-input"
                   type="number"
@@ -782,9 +784,9 @@ function Clients({ clients, onSave, modal, setModal, editItem, setEditItem }) {
                   })()}
                 />
               </div>
-              {(form.serviceType ?? "ia") === "ia" ? (
+              {(form.serviceType ?? "ia") !== "web" ? (
                 <div className="form-group">
-                  <div className="form-label">Mensualidad (MXN)</div>
+                  <div className="form-label">{(form.serviceType ?? "ia") === "suscripcion" ? "Renta mensual (MXN)" : "Mensualidad (MXN)"}</div>
                   <input className="form-input" type="number" value={form.monthlyFee} onChange={e => f("monthlyFee", e.target.value)} placeholder="0" />
                 </div>
               ) : (
