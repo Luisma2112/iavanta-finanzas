@@ -232,6 +232,12 @@ function fmtDate(dateStr) {
   return `${d} de ${months[m - 1]} de ${y}`;
 }
 
+// Textos por defecto de la carta que envuelve la descripción de servicios.
+const DEFAULT_ATENCION = "A quien corresponda";
+const DEFAULT_APERTURA = "Pongo a su amable consideración la siguiente cotización.";
+const DEFAULT_CIERRE   = "Sin más por el momento, espero poder trabajar juntos.";
+const DEFAULT_FIRMA    = "Luis Manuel Garcia";
+
 const PURPLE       = "#7C3AED";
 const PURPLE_LIGHT = "#9b5cff";
 const IVA_RATE     = 0.16;
@@ -292,6 +298,7 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
     afterDiscount, iva, total, includeIVA, notas,
     monthlyTotal, monthlySubtotal, hasOneTime, hasMonthly,
     showDescripciones, notasTabla,
+    atencionA, textoApertura, textoCierre, firmaNombre,
   } = props;
 
   const hasDescuentoNota = descuento > 0 && descuentoNota.trim();
@@ -303,8 +310,13 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
   // Notas que van dentro de la tabla, como una fila más.
   const tableNotes = (notasTabla || []).filter((n) => n.trim());
 
-  // Con descripción, la tabla siempre arranca en hoja nueva.
-  const breakBeforeTable = descItems.length > 0;
+  // Carta: encabezado de atención, texto de apertura y despedida.
+  const hasCarta = showDescripciones && !!(
+    (atencionA || "").trim() || (textoApertura || "").trim() ||
+    (textoCierre || "").trim() || (firmaNombre || "").trim()
+  );
+  // Con descripción o carta, la tabla siempre arranca en hoja nueva.
+  const breakBeforeTable = descItems.length > 0 || hasCarta;
 
   // Relleno blanco SOLO para la vista en pantalla: completa la última hoja de la
   // descripción para que el preview muestre el mismo corte que tendrá el PDF.
@@ -385,6 +397,26 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
           <div style={{ fontSize:14, color:"#6b7280", marginTop:4 }}>{ciudad}</div>
         </div>
 
+        {/* Apertura de la carta — encima de la descripción */}
+        {hasCarta && ((atencionA || "").trim() || (textoApertura || "").trim()) && (
+          <div style={{ padding:"20px 32px 0" }}>
+            {(atencionA || "").trim() && (
+              <>
+                <div style={{ fontSize:13, fontWeight:700, color:"#111827" }}>Atención</div>
+                <div style={{ fontSize:13, fontWeight:700, color:"#111827" }}>{atencionA}</div>
+                {(empresa || nombre) && (
+                  <div style={{ fontSize:13, color:"#374151", marginTop:2 }}>{empresa || nombre}</div>
+                )}
+              </>
+            )}
+            {(textoApertura || "").trim() && (
+              <div style={{ fontSize:12, color:"#374151", lineHeight:1.65, marginTop:12, whiteSpace:"pre-wrap" }}>
+                {textoApertura}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Descripción de servicios — arriba de la tabla, sin precios */}
         {descItems.length > 0 && (
           <div style={{ padding:"18px 32px 0" }}>
@@ -417,6 +449,24 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
           </div>
         )}
 
+        {/* Cierre de la carta — al final de la hoja de descripción */}
+        {hasCarta && ((textoCierre || "").trim() || (firmaNombre || "").trim()) && (
+          <div style={{ padding:"20px 32px 0" }}>
+            {(textoCierre || "").trim() && (
+              <div style={{ fontSize:12, color:"#374151", lineHeight:1.65, whiteSpace:"pre-wrap" }}>
+                {textoCierre}
+              </div>
+            )}
+            {(firmaNombre || "").trim() && (
+              <div style={{ fontSize:12, fontWeight:700, color:"#111827", marginTop:10 }}>
+                Att: {firmaNombre}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Respiro al final de la hoja de descripción */}
+        {breakBeforeTable && <div style={{ height:28 }} />}
       </div>
 
       {/* Relleno blanco solo para la vista; se quita antes de capturar el PDF */}
@@ -772,6 +822,10 @@ export function Cotizador() {
   const [notas,         setNotas]         = useState(["IVA no incluido"]);
   const [notaExtra,     setNotaExtra]     = useState("");
   const [showDescripciones, setShowDescripciones] = useState(false);
+  const [atencionA,     setAtencionA]     = useState(DEFAULT_ATENCION);
+  const [textoApertura, setTextoApertura] = useState(DEFAULT_APERTURA);
+  const [textoCierre,   setTextoCierre]   = useState(DEFAULT_CIERRE);
+  const [firmaNombre,   setFirmaNombre]   = useState(DEFAULT_FIRMA);
   const [notasTabla,    setNotasTabla]    = useState([]);
   const [notaTablaExtra, setNotaTablaExtra] = useState("");
   const [downloading,   setDownloading]   = useState(false);
@@ -1030,6 +1084,47 @@ export function Cotizador() {
         </button>
 
         {showDescripciones && (
+          <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:10 }}>
+            <div style={{ ...S.sectionTitle, marginBottom:0, marginTop:2 }}>Texto de apertura</div>
+            <div>
+              <span style={S.label}>Atención a</span>
+              <input
+                style={S.input} value={atencionA}
+                onChange={(e) => setAtencionA(e.target.value)}
+                placeholder="A quien corresponda"
+              />
+              <div style={{ fontSize:10, color:"#a8a0c0", marginTop:3 }}>
+                Debajo se imprime solo: {empresa || nombre || "(nombre o empresa del cliente)"}
+              </div>
+            </div>
+            <textarea
+              style={{ ...S.input, resize:"vertical", minHeight:58, lineHeight:1.5, fontSize:12 }}
+              value={textoApertura}
+              onChange={(e) => setTextoApertura(e.target.value)}
+              placeholder={DEFAULT_APERTURA}
+            />
+
+            <div style={{ ...S.sectionTitle, marginBottom:0, marginTop:6 }}>Texto de cierre</div>
+            <textarea
+              style={{ ...S.input, resize:"vertical", minHeight:58, lineHeight:1.5, fontSize:12 }}
+              value={textoCierre}
+              onChange={(e) => setTextoCierre(e.target.value)}
+              placeholder={DEFAULT_CIERRE}
+            />
+            <div>
+              <span style={S.label}>Firma (Att:)</span>
+              <input
+                style={S.input} value={firmaNombre}
+                onChange={(e) => setFirmaNombre(e.target.value)}
+                placeholder={DEFAULT_FIRMA}
+              />
+            </div>
+
+            <div style={{ ...S.sectionTitle, marginBottom:0, marginTop:6 }}>Descripción por servicio</div>
+          </div>
+        )}
+
+        {showDescripciones && (
           items.length === 0 ? (
             <p style={{ fontSize:12, color:"#a8a0c0", textAlign:"center", padding:"14px 0", fontStyle:"italic" }}>
               Agrega servicios para escribir su descripción
@@ -1209,6 +1304,8 @@ export function Cotizador() {
               monthlyTotal={monthlyTotal} monthlySubtotal={monthlySubtotal}
               hasOneTime={hasOneTime} hasMonthly={hasMonthly}
               showDescripciones={showDescripciones} notasTabla={notasTabla}
+              atencionA={atencionA} textoApertura={textoApertura}
+              textoCierre={textoCierre} firmaNombre={firmaNombre}
             />
             {/* Guías de corte de hoja carta */}
             {pageGuides.map((y, i) => (
