@@ -303,12 +303,36 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
   // Notas que van dentro de la tabla, como una fila más.
   const tableNotes = (notasTabla || []).filter((n) => n.trim());
 
+  // Con descripción, la tabla siempre arranca en hoja nueva.
+  const breakBeforeTable = descItems.length > 0;
+
+  // Relleno blanco SOLO para la vista en pantalla: completa la última hoja de la
+  // descripción para que el preview muestre el mismo corte que tendrá el PDF.
+  // En la captura se elimina (data-screen-only), ahí el corte lo hace jsPDF.
+  const contentRef = useRef(null);
+  const [fillH, setFillH] = useState(0);
+  useEffect(() => {
+    if (!breakBeforeTable) { setFillH(0); return; }
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => {
+      const rest = el.offsetHeight % PAGE_H_PX;
+      setFillH(rest === 0 ? 0 : Math.round(PAGE_H_PX - rest));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [breakBeforeTable]);
+
   // Estilos comunes de celda para la tabla
   const tdBase = { borderBottom:"1px solid #f3f4f6", verticalAlign:"top" };
 
   return (
     <div
       ref={ref}
+      data-break-before-table={breakBeforeTable ? "1" : "0"}
       style={{
         backgroundColor: "#ffffff",
         fontFamily: "Arial, Helvetica, sans-serif",
@@ -319,7 +343,7 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
       {/* ════════════════════════════════════════════
           CONTENT SECTION — capturado para páginas de contenido
           ════════════════════════════════════════════ */}
-      <div data-section="content" style={{ backgroundColor:"#ffffff" }}>
+      <div data-section="content" ref={contentRef} style={{ backgroundColor:"#ffffff" }}>
 
         {/* Top info bar */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 32px", borderBottom:"1px solid #e5e7eb", fontSize:12, color:"#6b7280" }}>
@@ -392,6 +416,18 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
             })}
           </div>
         )}
+
+      </div>
+
+      {/* Relleno blanco solo para la vista; se quita antes de capturar el PDF */}
+      {breakBeforeTable && fillH > 0 && (
+        <div data-screen-only="1" style={{ height:fillH, backgroundColor:"#ffffff" }} />
+      )}
+
+      {/* ════════════════════════════════════════════
+          TABLE SECTION — con descripción activa, siempre en hoja aparte
+          ════════════════════════════════════════════ */}
+      <div data-section="table" style={{ backgroundColor:"#ffffff" }}>
 
         {/* Products table */}
         <div style={{ padding:"16px 32px 0" }}>
@@ -620,8 +656,14 @@ async function generatePDF(previewEl, nombre, invoiceId) {
   document.body.appendChild(host);
 
   try {
+    // Los rellenos blancos existen solo para que la vista en pantalla muestre
+    // el corte de hoja; en el PDF el corte lo hace la paginación real.
+    clone.querySelectorAll("[data-screen-only]").forEach((el) => el.remove());
+
     const contentEl = clone.querySelector("[data-section='content']");
+    const tableEl   = clone.querySelector("[data-section='table']");
     const footerEl  = clone.querySelector("[data-section='footer']");
+    const breakBeforeTable = clone.dataset.breakBeforeTable === "1";
 
     // Esperar a que carguen las imágenes del clon (logos, marca de agua)
     const imgs = clone.querySelectorAll("img");
@@ -639,46 +681,73 @@ async function generatePDF(previewEl, nombre, invoiceId) {
       height: el.scrollHeight, windowHeight: el.scrollHeight,
     });
 
-    const [contentCanvas, footerCanvas] = await Promise.all([shot(contentEl), shot(footerEl)]);
+    const [contentCanvas, tableCanvas, footerCanvas] =
+      await Promise.all([shot(contentEl), shot(tableEl), shot(footerEl)]);
 
-    const pdf     = new jsPDF({ orientation:"portrait", unit:"pt", format:"letter" });
-    const ptPerPx = LETTER_W / contentCanvas.width;      // puntos por px del canvas
-    const pageH_px  = Math.floor(LETTER_H / ptPerPx);    // alto de una carta, en px del canvas
-    const footerH_pt = footerCanvas.height * ptPerPx;
+    const pdf      = new jsPDF({ orientation:"portrait", unit:"pt", format:"letter" });
+    const ptPerPx  = LETTER_W / contentCanvas.width;     // puntos por px del canvas
+    const pageH_px = Math.floor(LETTER_H / ptPerPx);     // alto de una carta, en px del canvas
 
-    // ── Páginas de contenido (troceado por alto) ────────────────────────────
-    let yOffset = 0, remaining = contentCanvas.height, firstPage = true;
-    while (remaining > 0) {
-      const sliceH = Math.min(pageH_px, remaining);
-      const page   = document.createElement("canvas");
-      page.width   = contentCanvas.width;
-      page.height  = pageH_px;                            // siempre carta completa: sin huecos
-      const ctx    = page.getContext("2d");
+    const blankPage = () => {
+      const c = document.createElement("canvas");
+      c.width  = contentCanvas.width;
+      c.height = pageH_px;
+      const ctx = c.getContext("2d");
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, page.width, page.height);
-      ctx.drawImage(contentCanvas, 0, yOffset, contentCanvas.width, sliceH, 0, 0, contentCanvas.width, sliceH);
+      ctx.fillRect(0, 0, c.width, c.height);
+      return c;
+    };
 
-      if (!firstPage) pdf.addPage();
-      firstPage = false;
-      pdf.addImage(page.toDataURL("image/png"), "PNG", 0, 0, LETTER_W, LETTER_H);
+    // Une varios canvas en una sola tira vertical (flujo continuo).
+    const joinCanvases = (list) => {
+      const kept = list.filter((c) => c.height > 0);
+      if (kept.length === 1) return kept[0];
+      const out = document.createElement("canvas");
+      out.width  = contentCanvas.width;
+      out.height = kept.reduce((h, c) => h + c.height, 0);
+      const ctx  = out.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, out.width, out.height);
+      let y = 0;
+      kept.forEach((c) => { ctx.drawImage(c, 0, y); y += c.height; });
+      return out;
+    };
 
-      yOffset   += sliceH;
-      remaining -= sliceH;
-    }
+    // Cada flujo empieza forzosamente en hoja nueva. Con descripción activa,
+    // encabezado+descripción y tabla son flujos distintos: nunca comparten hoja.
+    // Sin descripción, todo fluye seguido como antes.
+    const flows = breakBeforeTable
+      ? [contentCanvas, tableCanvas]
+      : [joinCanvases([contentCanvas, tableCanvas])];
+
+    // ── Troceado de cada flujo en hojas carta ───────────────────────────────
+    const pages = [];   // { canvas, usedH } — usedH = px realmente ocupados
+    flows.forEach((flow) => {
+      if (flow.height === 0) return;
+      let y = 0;
+      while (y < flow.height) {
+        const sliceH = Math.min(pageH_px, flow.height - y);
+        const page   = blankPage();
+        page.getContext("2d").drawImage(flow, 0, y, flow.width, sliceH, 0, 0, flow.width, sliceH);
+        pages.push({ canvas: page, usedH: sliceH });
+        y += sliceH;
+      }
+    });
 
     // ── Footer completo al fondo de la última hoja (nunca se parte) ──────────
-    const contentH_pt  = contentCanvas.height * ptPerPx;
-    const numPages     = Math.ceil(contentH_pt / LETTER_H);
-    const lastUsed_pt  = contentH_pt - (numPages - 1) * LETTER_H;
-    const spaceLeft_pt = LETTER_H - lastUsed_pt;
-    const footerImg    = footerCanvas.toDataURL("image/png");
-
-    if (footerH_pt <= spaceLeft_pt) {
-      pdf.addImage(footerImg, "PNG", 0, LETTER_H - footerH_pt, LETTER_W, footerH_pt);
+    const last = pages[pages.length - 1];
+    if (last && pageH_px - last.usedH >= footerCanvas.height) {
+      last.canvas.getContext("2d").drawImage(footerCanvas, 0, pageH_px - footerCanvas.height);
     } else {
-      pdf.addPage();
-      pdf.addImage(footerImg, "PNG", 0, Math.max(0, LETTER_H - footerH_pt), LETTER_W, footerH_pt);
+      const page = blankPage();
+      page.getContext("2d").drawImage(footerCanvas, 0, Math.max(0, pageH_px - footerCanvas.height));
+      pages.push({ canvas: page, usedH: pageH_px });
     }
+
+    pages.forEach((pg, i) => {
+      if (i > 0) pdf.addPage();
+      pdf.addImage(pg.canvas.toDataURL("image/png"), "PNG", 0, 0, LETTER_W, LETTER_H);
+    });
 
     const slug = (nombre || "Cliente").trim().replace(/\s+/g, "_");
     pdf.save(`Cotizacion_${slug}_${invoiceId.replace("#", "")}.pdf`);
