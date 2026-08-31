@@ -290,7 +290,7 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
     invoiceId, fechaInicio, fechaFin,
     items, subtotal, descuento, descuentoNota,
     afterDiscount, iva, total, includeIVA, notas,
-    monthlyTotal, hasOneTime, hasMonthly,
+    monthlyTotal, monthlySubtotal, hasOneTime, hasMonthly,
     showDescripciones, notasTabla,
   } = props;
 
@@ -482,36 +482,42 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
 
           {/* Totals */}
           <div style={{ minWidth:300 }}>
-            {(hasOneTime || !hasMonthly) && (
-              <>
-                <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
-                  <span style={{ color:"#6b7280" }}>SUB-TOTAL</span>
-                  <span style={{ fontWeight:600 }}>{fmtMXN(subtotal)}</span>
-                </div>
-                {descuento > 0 && (
-                  <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
-                    <span style={{ color:"#6b7280" }}>DESCUENTO*</span>
-                    <span style={{ fontWeight:600, color:PURPLE }}>- {fmtMXN(descuento)}</span>
-                  </div>
-                )}
-                {includeIVA && (
-                  <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
-                    <span style={{ color:"#6b7280" }}>IVA (16%)</span>
-                    <span style={{ fontWeight:600, color:"#374151" }}>+ {fmtMXN(iva)}</span>
-                  </div>
-                )}
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px", backgroundColor:PURPLE, color:"#fff", marginTop:6, borderRadius:4 }}>
-                  <span style={{ fontWeight:700, fontSize:13, lineHeight:1.4 }}>
-                    {hasMonthly ? <>PAGO ÚNICO<br />(PESOS MX){includeIVA ? " · IVA inc." : ""}</> : <>TOTAL PESOS<br />MEXICANOS{includeIVA ? " (IVA inc.)" : ""}</>}
-                  </span>
-                  <span style={{ fontWeight:800, fontSize:20 }}>{fmtMXN(total)}</span>
-                </div>
-              </>
+            {/* El primer pago incluye los conceptos únicos + el primer mes de lo recurrente */}
+            {hasOneTime && (
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
+                <span style={{ color:"#6b7280" }}>SUB-TOTAL</span>
+                <span style={{ fontWeight:600 }}>{fmtMXN(subtotal)}</span>
+              </div>
             )}
+            {hasMonthly && (
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
+                <span style={{ color:"#6b7280" }}>1ER MES DE MENSUALIDAD</span>
+                <span style={{ fontWeight:600 }}>{hasOneTime ? "+ " : ""}{fmtMXN(monthlySubtotal)}</span>
+              </div>
+            )}
+            {descuento > 0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
+                <span style={{ color:"#6b7280" }}>DESCUENTO*</span>
+                <span style={{ fontWeight:600, color:PURPLE }}>- {fmtMXN(descuento)}</span>
+              </div>
+            )}
+            {includeIVA && (
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 14px", fontSize:13, borderBottom:"1px solid #f3f4f6" }}>
+                <span style={{ color:"#6b7280" }}>IVA (16%)</span>
+                <span style={{ fontWeight:600, color:"#374151" }}>+ {fmtMXN(iva)}</span>
+              </div>
+            )}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px", backgroundColor:PURPLE, color:"#fff", marginTop:6, borderRadius:4 }}>
+              <span style={{ fontWeight:700, fontSize:13, lineHeight:1.4 }}>
+                {hasMonthly ? <>PRIMER PAGO<br />(PESOS MX){includeIVA ? " · IVA inc." : ""}</> : <>TOTAL PESOS<br />MEXICANOS{includeIVA ? " (IVA inc.)" : ""}</>}
+              </span>
+              <span style={{ fontWeight:800, fontSize:20 }}>{fmtMXN(total)}</span>
+            </div>
             {hasMonthly && (
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px", border:`2px solid ${PURPLE}`, color:PURPLE, marginTop:8, borderRadius:4 }}>
                 <span style={{ fontWeight:700, fontSize:13, lineHeight:1.4 }}>
-                  MENSUALIDAD<br />(PESOS MX){includeIVA ? " · IVA inc." : ""}
+                  MENSUALIDAD<br />
+                  <span style={{ fontSize:11, fontWeight:600 }}>a partir del 2º mes{includeIVA ? " · IVA inc." : ""}</span>
                 </span>
                 <span style={{ fontWeight:800, fontSize:20 }}>{fmtMXN(monthlyTotal)}<span style={{ fontSize:12, fontWeight:700 }}> /mes</span></span>
               </div>
@@ -723,11 +729,13 @@ export function Cotizador() {
   const lineTotal = (it) => it.incluido ? 0 : it.precio * it.cantidad;
   // Pago único: todo lo que NO es recurrente.
   const subtotal      = items.reduce((s, it) => s + (it.recurrente ? 0 : lineTotal(it)), 0);
-  const afterDiscount = Math.max(0, subtotal - descuento);
+  // Cobro mensual recurrente (bloque aparte, a partir del 2º mes).
+  const monthlySubtotal = items.reduce((s, it) => s + (it.recurrente ? lineTotal(it) : 0), 0);
+  // El primer pago cobra los conceptos únicos + el primer mes de lo recurrente.
+  const firstSubtotal = subtotal + monthlySubtotal;
+  const afterDiscount = Math.max(0, firstSubtotal - descuento);
   const iva           = includeIVA ? Math.round(afterDiscount * IVA_RATE) : 0;
   const total         = afterDiscount + iva;
-  // Cobro mensual recurrente (bloque aparte).
-  const monthlySubtotal = items.reduce((s, it) => s + (it.recurrente ? lineTotal(it) : 0), 0);
   const monthlyIva      = includeIVA ? Math.round(monthlySubtotal * IVA_RATE) : 0;
   const monthlyTotal    = monthlySubtotal + monthlyIva;
   const hasOneTime      = subtotal > 0;
@@ -1027,15 +1035,16 @@ export function Cotizador() {
           {/* Resumen en tiempo real */}
           {items.length > 0 && (
             <div style={{ background:"#f8f6fd", borderRadius:10, padding:"10px 14px", marginTop:4 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9990b8", marginBottom:4 }}><span>Subtotal{hasMonthly ? " único" : ""}</span><span>{fmtMXNShort(subtotal)}</span></div>
+              {hasOneTime && <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9990b8", marginBottom:4 }}><span>Subtotal</span><span>{fmtMXNShort(subtotal)}</span></div>}
+              {hasMonthly && <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9990b8", marginBottom:4 }}><span>1er mes de mensualidad</span><span>{hasOneTime ? "+ " : ""}{fmtMXNShort(monthlySubtotal)}</span></div>}
               {descuento > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9990b8", marginBottom:4 }}><span>Descuento</span><span style={{ color:PURPLE_LIGHT }}>- {fmtMXNShort(descuento)}</span></div>}
               {includeIVA  && <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9990b8", marginBottom:4 }}><span>IVA 16%</span><span>+ {fmtMXNShort(iva)}</span></div>}
               <div style={{ display:"flex", justifyContent:"space-between", fontSize:14, fontWeight:700, color:"#1a1625", borderTop:"1px solid #e8e3f5", paddingTop:6, marginTop:4 }}>
-                <span>Total{hasMonthly ? " único" : ""}</span><span style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(total)}</span>
+                <span>{hasMonthly ? "Primer pago" : "Total"}</span><span style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(total)}</span>
               </div>
               {hasMonthly && (
                 <div style={{ display:"flex", justifyContent:"space-between", fontSize:14, fontWeight:700, color:"#1a1625", borderTop:"1px dashed #d4b5ff", paddingTop:6, marginTop:6 }}>
-                  <span>🔁 Mensualidad</span><span style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(monthlyTotal)}/mes</span>
+                  <span>🔁 Desde el 2º mes</span><span style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(monthlyTotal)}/mes</span>
                 </div>
               )}
             </div>
@@ -1103,8 +1112,8 @@ export function Cotizador() {
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             {items.length > 0 && (
               <span style={{ fontSize:13, color:"#6b6580", fontFamily:"DM Mono, monospace" }}>
-                {hasOneTime && <>Total: <strong style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(total)}</strong></>}
-                {hasMonthly && <> {hasOneTime ? "+ " : ""}<strong style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(monthlyTotal)}/mes</strong></>}
+                {hasMonthly ? "1er pago: " : "Total: "}<strong style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(total)}</strong>
+                {hasMonthly && <> · luego <strong style={{ color:PURPLE_LIGHT }}>{fmtMXNShort(monthlyTotal)}/mes</strong></>}
                 {includeIVA ? " (IVA inc.)" : ""}
               </span>
             )}
@@ -1128,7 +1137,8 @@ export function Cotizador() {
               descuento={descuento} descuentoNota={descuentoNota}
               afterDiscount={afterDiscount} iva={iva} total={total}
               includeIVA={includeIVA} notas={notas}
-              monthlyTotal={monthlyTotal} hasOneTime={hasOneTime} hasMonthly={hasMonthly}
+              monthlyTotal={monthlyTotal} monthlySubtotal={monthlySubtotal}
+              hasOneTime={hasOneTime} hasMonthly={hasMonthly}
               showDescripciones={showDescripciones} notasTabla={notasTabla}
             />
             {/* Guías de corte de hoja carta */}
