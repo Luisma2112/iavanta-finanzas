@@ -5,42 +5,196 @@ const CATALOG = [
   {
     cat: "Agente IA para WhatsApp",
     items: [
-      { producto: "IA Vanta – Implementación inicial", precio: 5700, cantidad: 1, nota: "Pago único" },
-      { producto: "IA Vanta – Mensualidad", precio: 2900, cantidad: 1, nota: "Por mes" },
+      {
+        producto: "IA Vanta – Implementación inicial", precio: 5700, cantidad: 1, nota: "Pago único",
+        desc: "Configuración y puesta en marcha del agente de inteligencia artificial sobre WhatsApp Business, entrenado con la información de tu negocio para atender y calificar clientes de forma automática.",
+        inc: [
+          "Alta y verificación del número en WhatsApp Business API",
+          "Entrenamiento del agente con tu catálogo, precios y preguntas frecuentes",
+          "Diseño de flujos de conversación y derivación a un asesor humano",
+          "Pruebas y ajustes previos al lanzamiento",
+        ],
+      },
+      {
+        producto: "IA Vanta – Mensualidad", precio: 2900, cantidad: 1, nota: "Por mes",
+        desc: "Operación continua del agente de IA: infraestructura, mensajería y mejoras del modelo mes con mes.",
+        inc: [
+          "Hospedaje y operación del agente 24/7",
+          "Mensajes incluidos dentro del plan contratado",
+          "Ajuste de respuestas y reentrenamiento mensual",
+          "Reporte mensual de conversaciones atendidas",
+          "Soporte técnico",
+        ],
+      },
     ],
   },
   {
     cat: "Sitios Web",
     items: [
-      { producto: "Landing Page (1-4 páginas)", precio: 2500, cantidad: 1, nota: "" },
-      { producto: "Página Corporativa (4-10 páginas)", precio: 4700, cantidad: 1, nota: "" },
-      { producto: "E-commerce (catálogo, carrito, pagos)", precio: 8900, cantidad: 1, nota: "" },
-      { producto: "Rediseño de sitio web", precio: 1800, cantidad: 1, nota: "" },
+      {
+        producto: "Landing Page (1-4 páginas)", precio: 2500, cantidad: 1, nota: "",
+        desc: "Sitio web de una a cuatro secciones, enfocado en convertir visitas en clientes, responsivo en dispositivos móviles.",
+        inc: [
+          "Diseño UX/UI a medida, responsivo en móvil y escritorio",
+          "Formulario de contacto con protección anti-spam",
+          "Integración con WhatsApp y redes sociales",
+          "Optimización de velocidad de carga",
+          "Publicación y configuración en el servidor",
+        ],
+      },
+      {
+        producto: "Página Corporativa (4-10 páginas)", precio: 4700, cantidad: 1, nota: "",
+        desc: "Sitio institucional con secciones de empresa, servicios, portafolio y contacto, responsivo en dispositivos móviles.",
+        inc: [
+          "Diseño UX/UI a medida, responsivo en móvil y escritorio",
+          "Hasta 10 páginas internas con contenido editable",
+          "Formularios de contacto con protección anti-spam",
+          "Integración de Google Analytics",
+          "SEO on-page en todas las páginas",
+          "Capacitación de uso del administrador",
+        ],
+      },
+      {
+        producto: "E-commerce (catálogo, carrito, pagos)", precio: 8900, cantidad: 1, nota: "",
+        desc: "Tienda en línea completa con catálogo de productos, carrito de compras y cobro en línea.",
+        inc: [
+          "Catálogo de productos con categorías y buscador",
+          "Carrito y proceso de compra optimizado",
+          "Pasarela de pagos (tarjeta, SPEI, Mercado Pago)",
+          "Cálculo de envíos y gestión de pedidos",
+          "Panel de administración de inventario",
+          "Capacitación de uso",
+        ],
+      },
+      {
+        producto: "Rediseño de sitio web", precio: 1800, cantidad: 1, nota: "",
+        desc: "Renovación visual y estructural de un sitio ya existente, conservando y mejorando su contenido actual.",
+        inc: [
+          "Auditoría del sitio actual",
+          "Nueva propuesta de diseño responsivo",
+          "Migración de contenido e imágenes existentes",
+          "Mejora de velocidad de carga y SEO técnico",
+          "Publicación sin perder el posicionamiento actual",
+        ],
+      },
     ],
   },
   {
     cat: "Adicionales",
     items: [
-      { producto: "Dominio anual (.com / .com.mx)", precio: 0,    cantidad: 1, nota: "", hasIncluido: true },
-      { producto: "Hosting Anual",                  precio: 1500, cantidad: 1, nota: "", hasIncluido: true },
-      { producto: "Mantenimiento web",              precio: 200,  cantidad: 1, nota: "Por hora", hasIncluido: true },
-      { producto: "SEO Básico (optimización on-page)",    precio: 500,  cantidad: 1, nota: "", hasIncluido: true },
-      { producto: "SEO Avanzado (optimización on-page)",  precio: 1500, cantidad: 1, nota: "", hasIncluido: true },
+      {
+        producto: "Dominio anual (.com / .com.mx)", precio: 0, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Registro y configuración del dominio a nombre del cliente por 12 meses.",
+        inc: [
+          "Registro del dominio .com o .com.mx",
+          "Configuración de DNS apuntando al sitio",
+          "Renovación anual a partir del segundo año (se cotiza por separado)",
+        ],
+      },
+      {
+        producto: "Hosting Anual", precio: 1500, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Alojamiento del sitio web en servidor administrado durante 12 meses.",
+        inc: [
+          "Servidor con certificado SSL incluido",
+          "Respaldos automáticos periódicos",
+          "Cuentas de correo corporativo",
+          "Monitoreo de disponibilidad del sitio",
+        ],
+      },
+      {
+        producto: "Mantenimiento web", precio: 200, cantidad: 1, nota: "Por hora", hasIncluido: true,
+        desc: "Actualizaciones y soporte técnico del sitio web solicitados por el cliente.",
+        inc: [
+          "Actualización de textos e imágenes solicitadas",
+          "Soporte técnico sobre las funciones del sitio",
+          "Actualización de seguridad y componentes",
+          "Reporte mensual de visitas",
+        ],
+      },
+      {
+        producto: "SEO Básico (optimización on-page)", precio: 500, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Optimización on-page para mejorar la visibilidad del sitio en buscadores.",
+        inc: [
+          "Investigación de palabras clave principales",
+          "Títulos, metadescripciones y encabezados optimizados",
+          "Optimización de imágenes y velocidad de carga",
+          "Alta en Google Search Console y Google Analytics",
+        ],
+      },
+      {
+        producto: "SEO Avanzado (optimización on-page)", precio: 1500, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Estrategia ampliada de posicionamiento orgánico, con análisis de competencia y seguimiento de resultados.",
+        inc: [
+          "Todo lo incluido en SEO Básico",
+          "Investigación extendida de palabras clave y competencia",
+          "Optimización de contenido en todas las páginas",
+          "Datos estructurados (schema) y mapa del sitio",
+          "Alta y optimización del perfil de Google Business",
+          "Reporte de posicionamiento",
+        ],
+      },
     ],
   },
   {
     cat: "Diseño de Marca",
     items: [
-      { producto: "Logo",                    precio: 500,  cantidad: 1, nota: "", hasIncluido: true },
-      { producto: "Paleta de colores",       precio: 1200, cantidad: 1, nota: "", hasIncluido: true },
-      { producto: "Logo + Paleta de colores",precio: 1500, cantidad: 1, nota: "", hasIncluido: true },
-      { producto: "Guía de estilo completa", precio: 2500, cantidad: 1, nota: "", hasIncluido: true },
+      {
+        producto: "Logo", precio: 500, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Diseño de logotipo original para la marca, entregado en todos los formatos de uso.",
+        inc: [
+          "Propuestas de logotipo a elegir",
+          "Dos rondas de ajustes sobre la propuesta seleccionada",
+          "Entrega en vectorial (AI / SVG) y PNG",
+          "Versiones horizontal, vertical y monocromática",
+        ],
+      },
+      {
+        producto: "Paleta de colores", precio: 1200, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Definición de la paleta cromática oficial de la marca y sus reglas de uso.",
+        inc: [
+          "Colores primarios, secundarios y de apoyo",
+          "Códigos HEX, RGB y CMYK",
+          "Reglas de uso y combinaciones permitidas",
+          "Ejemplos de aplicación",
+        ],
+      },
+      {
+        producto: "Logo + Paleta de colores", precio: 1500, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Paquete de identidad básica: logotipo original más la paleta cromática oficial de la marca.",
+        inc: [
+          "Propuestas de logotipo a elegir y dos rondas de ajustes",
+          "Entrega en vectorial (AI / SVG) y PNG",
+          "Versiones horizontal, vertical y monocromática",
+          "Paleta de colores primarios y secundarios con códigos HEX, RGB y CMYK",
+          "Reglas de uso y ejemplos de aplicación",
+        ],
+      },
+      {
+        producto: "Guía de estilo completa", precio: 2500, cantidad: 1, nota: "", hasIncluido: true,
+        desc: "Manual de identidad visual con todos los lineamientos gráficos de la marca.",
+        inc: [
+          "Logotipo y todas sus versiones",
+          "Paleta de colores y tipografías oficiales",
+          "Usos correctos e incorrectos de la marca",
+          "Aplicaciones en papelería y redes sociales",
+          "Entrega del manual en PDF",
+        ],
+      },
     ],
   },
   {
     cat: "Capacitación",
     items: [
-      { producto: "Capacitación para equipos", precio: 300, cantidad: 1, nota: "Por sesión", hasIncluido: true },
+      {
+        producto: "Capacitación para equipos", precio: 300, cantidad: 1, nota: "Por sesión", hasIncluido: true,
+        desc: "Sesión de capacitación para el equipo del cliente sobre el uso de las herramientas entregadas.",
+        inc: [
+          "Sesión en línea o presencial de 1.5 horas",
+          "Material de apoyo descargable",
+          "Grabación de la sesión",
+          "Espacio de preguntas y respuestas",
+        ],
+      },
     ],
   },
 ];
@@ -109,6 +263,8 @@ function AutocompleteInput({ value, onFieldChange }) {
                 onFieldChange("precio", s.precio);
                 if (s.nota)        onFieldChange("nota", s.nota);
                 if (s.hasIncluido) onFieldChange("hasIncluido", s.hasIncluido);
+                onFieldChange("desc", s.desc || "");
+                onFieldChange("inc",  s.inc  ? [...s.inc] : []);
                 setOpen(false);
               }}
               style={S.dropdownItem}
@@ -135,9 +291,17 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
     items, subtotal, descuento, descuentoNota,
     afterDiscount, iva, total, includeIVA, notas,
     monthlyTotal, hasOneTime, hasMonthly,
+    showDescripciones, notasTabla,
   } = props;
 
   const hasDescuentoNota = descuento > 0 && descuentoNota.trim();
+
+  // Servicios que tienen algo que describir (párrafo o viñetas de "incluye").
+  const descItems = showDescripciones
+    ? items.filter((it) => (it.desc || "").trim() || (it.inc || []).some((l) => l.trim()))
+    : [];
+  // Notas que van dentro de la tabla, como una fila más.
+  const tableNotes = (notasTabla || []).filter((n) => n.trim());
 
   // Estilos comunes de celda para la tabla
   const tdBase = { borderBottom:"1px solid #f3f4f6", verticalAlign:"top" };
@@ -197,6 +361,38 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
           <div style={{ fontSize:14, color:"#6b7280", marginTop:4 }}>{ciudad}</div>
         </div>
 
+        {/* Descripción de servicios — arriba de la tabla, sin precios */}
+        {descItems.length > 0 && (
+          <div style={{ padding:"18px 32px 0" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"#9ca3af", letterSpacing:"0.1em", marginBottom:12 }}>
+              DESCRIPCIÓN DE SERVICIOS
+            </div>
+            {descItems.map((it, i) => {
+              const bullets = (it.inc || []).filter((l) => l.trim());
+              return (
+                <div key={it.id} style={{ marginBottom: i === descItems.length - 1 ? 4 : 16 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:PURPLE, marginBottom:4 }}>{it.producto}</div>
+                  {(it.desc || "").trim() && (
+                    <div style={{ fontSize:12, color:"#374151", lineHeight:1.65, whiteSpace:"pre-wrap" }}>{it.desc}</div>
+                  )}
+                  {bullets.length > 0 && (
+                    <table style={{ borderCollapse:"collapse", marginTop:6 }}>
+                      <tbody>
+                        {bullets.map((b, j) => (
+                          <tr key={j}>
+                            <td style={{ padding:"1px 8px 1px 4px", verticalAlign:"top", fontSize:12, color:PURPLE_LIGHT, lineHeight:1.6 }}>•</td>
+                            <td style={{ padding:"1px 0", verticalAlign:"top", fontSize:12, color:"#4b5563", lineHeight:1.6 }}>{b}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Products table */}
         <div style={{ padding:"16px 32px 0" }}>
           <table style={{ width:"100%", borderCollapse:"collapse" }}>
@@ -242,6 +438,23 @@ const QuotationPreview = forwardRef(function QuotationPreview(props, ref) {
                   </td>
                 </tr>
               ))}
+              {tableNotes.length > 0 && (
+                <tr>
+                  <td colSpan={4} style={{ padding:"12px 14px 14px", backgroundColor:"#faf8ff", borderTop:`2px solid ${PURPLE}`, borderBottom:"1px solid #e5e7eb" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:PURPLE, letterSpacing:"0.1em", marginBottom:6 }}>NOTAS</div>
+                    <table style={{ borderCollapse:"collapse", width:"100%" }}>
+                      <tbody>
+                        {tableNotes.map((n, i) => (
+                          <tr key={i}>
+                            <td style={{ padding:"1px 8px 1px 0", verticalAlign:"top", fontSize:12, color:PURPLE_LIGHT, lineHeight:1.6, width:12 }}>•</td>
+                            <td style={{ padding:"1px 0", verticalAlign:"top", fontSize:12, color:"#4b5563", lineHeight:1.6, whiteSpace:"pre-wrap" }}>{n}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -483,6 +696,9 @@ export function Cotizador() {
   const [includeIVA,    setIncludeIVA]    = useState(false);
   const [notas,         setNotas]         = useState(["IVA no incluido"]);
   const [notaExtra,     setNotaExtra]     = useState("");
+  const [showDescripciones, setShowDescripciones] = useState(false);
+  const [notasTabla,    setNotasTabla]    = useState([]);
+  const [notaTablaExtra, setNotaTablaExtra] = useState("");
   const [downloading,   setDownloading]   = useState(false);
 
   const previewRef = useRef(null);
@@ -530,11 +746,11 @@ export function Cotizador() {
   const addCatalogItem = useCallback((item) => {
     // Auto-marca como cobro mensual si la nota o el nombre lo indican.
     const recurrente = /mensual|\bpor mes\b|\/mes/i.test(`${item.nota || ""} ${item.producto || ""}`);
-    setItems((p) => [...p, { ...item, id:uid(), incluido:false, recurrente }]);
+    setItems((p) => [...p, { ...item, id:uid(), incluido:false, recurrente, desc: item.desc || "", inc: item.inc ? [...item.inc] : [] }]);
   }, []);
 
   const addCustomItem = useCallback(() => {
-    setItems((p) => [...p, { id:uid(), producto:"", precio:0, cantidad:1, nota:"", hasIncluido:false, incluido:false, recurrente:false }]);
+    setItems((p) => [...p, { id:uid(), producto:"", precio:0, cantidad:1, nota:"", hasIncluido:false, incluido:false, recurrente:false, desc:"", inc:[] }]);
   }, []);
 
   const updateItem = useCallback((id, field, value) => {
@@ -551,6 +767,14 @@ export function Cotizador() {
 
   const removeNota = useCallback((i) => {
     setNotas((p) => p.filter((_, idx) => idx !== i));
+  }, []);
+
+  const addNotaTabla = useCallback(() => {
+    if (notaTablaExtra.trim()) { setNotasTabla((p) => [...p, notaTablaExtra.trim()]); setNotaTablaExtra(""); }
+  }, [notaTablaExtra]);
+
+  const removeNotaTabla = useCallback((i) => {
+    setNotasTabla((p) => p.filter((_, idx) => idx !== i));
   }, []);
 
   // ── Download ──────────────────────────────────────────────────────────────
@@ -708,6 +932,64 @@ export function Cotizador() {
 
         <div style={S.divider} />
 
+        <div style={S.sectionTitle}>Descripción de servicios</div>
+
+        {/* Toggle: mostrar u ocultar el bloque descriptivo arriba de la tabla */}
+        <button
+          onClick={() => setShowDescripciones((v) => !v)}
+          style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background: showDescripciones ? "#9b5cff15" : "#f5f2ff", border: showDescripciones ? "1px solid #9b5cff50" : "1px solid #e0dbf0", borderRadius:10, cursor:"pointer", fontFamily:"DM Mono, monospace" }}
+        >
+          <div style={{ textAlign:"left" }}>
+            <div style={{ fontSize:13, fontWeight:700, color: showDescripciones ? PURPLE_LIGHT : "#6b6580" }}>
+              {showDescripciones ? "Descripción visible" : "Sin descripción"}
+            </div>
+            <div style={{ fontSize:11, color:"#9990b8", marginTop:2 }}>
+              {showDescripciones ? "Aparece arriba de la tabla, sin precios" : "Actívala para describir qué incluye cada servicio"}
+            </div>
+          </div>
+          <div style={{ width:38, height:22, borderRadius:11, background: showDescripciones ? PURPLE_LIGHT : "#d4d0e8", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+            <div style={{ position:"absolute", top:3, left: showDescripciones ? 19 : 3, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
+          </div>
+        </button>
+
+        {showDescripciones && (
+          items.length === 0 ? (
+            <p style={{ fontSize:12, color:"#a8a0c0", textAlign:"center", padding:"14px 0", fontStyle:"italic" }}>
+              Agrega servicios para escribir su descripción
+            </p>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:10 }}>
+              {items.map((item) => (
+                <div key={item.id} style={{ border:"1px solid #e0dbf0", borderRadius:10, padding:12, background:"#faf9fd", display:"flex", flexDirection:"column", gap:8 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:PURPLE_LIGHT }}>
+                    {item.producto || "Servicio sin nombre"}
+                  </div>
+                  <div>
+                    <span style={S.label}>Descripción</span>
+                    <textarea
+                      style={{ ...S.input, resize:"vertical", minHeight:66, lineHeight:1.5, fontSize:12 }}
+                      value={item.desc || ""}
+                      onChange={(e) => updateItem(item.id, "desc", e.target.value)}
+                      placeholder="Ej. Sitio web de una a cuatro secciones, responsivo en dispositivos móviles."
+                    />
+                  </div>
+                  <div>
+                    <span style={S.label}>Incluye (una por línea)</span>
+                    <textarea
+                      style={{ ...S.input, resize:"vertical", minHeight:80, lineHeight:1.5, fontSize:12 }}
+                      value={(item.inc || []).join("\n")}
+                      onChange={(e) => updateItem(item.id, "inc", e.target.value.split("\n"))}
+                      placeholder={"Diseño UX/UI a medida\nFormulario de contacto\nSEO on-page básico"}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        <div style={S.divider} />
+
         <div style={S.sectionTitle}>Descuento e IVA</div>
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           <div>
@@ -758,6 +1040,34 @@ export function Cotizador() {
               )}
             </div>
           )}
+        </div>
+
+        <div style={S.divider} />
+
+        <div style={S.sectionTitle}>Notas dentro de la tabla</div>
+        <p style={{ fontSize:11, color:"#a8a0c0", marginTop:0, marginBottom:8, lineHeight:1.5 }}>
+          Aparecen como una fila más, pegadas al final de la tabla de precios.
+        </p>
+        {notasTabla.length > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:8 }}>
+            {notasTabla.map((nota, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:6, background:"#f5f2ff", borderRadius:7, padding:"6px 10px", fontSize:12, color:"#6b6580" }}>
+                <span style={{ color:PURPLE_LIGHT, flexShrink:0 }}>•</span>
+                <span style={{ flex:1, whiteSpace:"pre-wrap" }}>{nota}</span>
+                <button onClick={() => removeNotaTabla(i)} style={{ background:"none", border:"none", cursor:"pointer", color:"#c4b5fd", fontSize:12, flexShrink:0 }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display:"flex", gap:6 }}>
+          <textarea
+            style={{ ...S.input, flex:1, resize:"vertical", minHeight:52, lineHeight:1.5, fontSize:12 }}
+            value={notaTablaExtra}
+            onChange={(e) => setNotaTablaExtra(e.target.value)}
+            placeholder="Ej. Se requiere 50% de anticipo, el resto contra entrega."
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addNotaTabla(); } }}
+          />
+          <button onClick={addNotaTabla} style={{ flexShrink:0, alignSelf:"stretch", background:PURPLE_LIGHT, color:"#fff", border:"none", borderRadius:8, padding:"8px 14px", cursor:"pointer", fontWeight:700, fontSize:14 }}>+</button>
         </div>
 
         <div style={S.divider} />
@@ -819,6 +1129,7 @@ export function Cotizador() {
               afterDiscount={afterDiscount} iva={iva} total={total}
               includeIVA={includeIVA} notas={notas}
               monthlyTotal={monthlyTotal} hasOneTime={hasOneTime} hasMonthly={hasMonthly}
+              showDescripciones={showDescripciones} notasTabla={notasTabla}
             />
             {/* Guías de corte de hoja carta */}
             {pageGuides.map((y, i) => (
